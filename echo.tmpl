@@ -1,0 +1,237 @@
+package api
+
+import (
+	"fmt"
+	"github.com/labstack/echo"
+	"net/http"
+	"strconv"
+)
+
+{{ define "refOrSchema" }}
+{{- if .Ref -}}{{ .Ref.GetTypeName }}{{ else }}{{ template "schemaType" .Schema }}{{ end }}
+{{ end }}
+
+{{- define "validation" -}}
+{{- $tags := .Schema.GetValidationTags .IsRequired -}}
+{{- if $tags }}validate:"{{ $tags }}"{{ end -}}
+{{- end -}}
+
+{{ define "properties" }}
+{{- $parentSchema := . -}}
+{{ range $name, $schema := .Properties -}}
+    {{- $isRequired := $parentSchema.IsFieldRequired $name -}}
+    {{- $isObject := $schema.IsObject -}}
+    {{ toCamel $name }} {{ if and (not $isRequired) $isObject }}*{{ end }} {{ template "schemaType" $schema }} `json:"{{ $name }}{{ if not $isRequired }},omitempty{{ end }}"`
+{{ end }}
+{{ end }}
+
+{{ define "schemaType" }}
+{{- if .AllOf -}}
+    struct {
+        {{- range .AllOf }}
+            {{ if .Type.IsObject -}}
+                {{ template "properties" . }}
+            {{- end -}}
+            {{- if .Ref -}}
+                {{ .Ref.GetTypeName }}
+            {{- end -}}
+        {{ end -}}
+    }
+{{- else -}}
+    {{- if .Ref -}}
+    {{ .Ref.GetTypeName }}
+    {{- else -}}
+        {{- if .Type.IsObject -}}
+            struct {
+                {{ template "properties" . }}
+            }
+        {{- else -}}
+            {{ .GetGoType }}
+        {{- end -}}
+    {{- end -}}
+    {{ end -}}
+{{ end -}}
+
+/* Components schemas */
+{{ range $name, $schema := .Components.Schemas }}
+type {{ $name }} {{ template "schemaType" $schema }}
+{{ end }}
+
+/* Components responses */
+{{ range $name, $response := .Components.Responses }}
+type {{ $name }}Response {{ template "refOrSchema" dict "Ref" $response.Ref "Schema" $response.Content.JSON.Schema }}
+{{ end }}
+
+/* Endpoints parameters */
+{{ range $path, $operations := .Paths }}
+{{ range $method, $operation := $operations }}
+type {{ pathToMethodName $path $method }}Params struct {
+    {{ range $operation.Parameters -}}
+    {{ toCamel .Name }} {{ if not .IsRequired }}*{{ end }}{{ template "schemaType" .Schema }}{{- " " -}}
+    `{{ if eq .In "path" }}param:"{{ .Name }}"{{ end }} {{ if eq .In "query" }}query:"{{ .Name }}"{{ end }}`
+    {{ end }}
+}
+{{ end }}
+{{ end }}
+
+/* Endpoints responses */
+{{ range $path, $operations := .Paths }}
+{{ range $method, $operation := $operations }}
+type {{ pathToMethodName $path $method }}Response struct {
+    {{ range $statusCode, $response := $operation.GetResponses -}}
+    HTTP{{ $statusCode }} *{{ template "refOrSchema" dict "Ref" $response.Ref "Schema" $response.Content.JSON.Schema }}
+    {{- end }}
+}
+{{ end }}
+{{ end }}
+
+type Controller interface {
+    {{- range $path, $operations := .Paths }}
+    {{- range $method, $operation := $operations }}
+    {{ $baseName := pathToMethodName $path $method }}
+    {{ $baseName }}(params {{ $baseName }}Params) {{ $baseName }}Response
+    {{ end -}}
+    {{ end}}
+}
+
+func sendHTTPError(c echo.Context, err error) error {
+	return c.JSON(http.StatusBadRequest, BadRequestErrorResponse{
+		Message: err.Error(),
+	})
+}
+
+func getStringParam(c echo.Context, isInPath bool, name string, isRequired bool, def *string, minLength *int64, maxLength *int64, enum []string) (*string, error) {
+	var value string
+
+	if isInPath {
+		value = c.Param(name)
+		if isRequired && value == "" {
+			return nil, sendHTTPError(c, fmt.Errorf("path parameter %v: value is required", name))
+		}
+		if value == "" && def != nil {
+			return def, nil
+		}
+	} else {
+		value = c.QueryParam(name)
+		if isRequired && c.QueryParams().Has(name) {
+			return nil, sendHTTPError(c, fmt.Errorf("query parameter %v: value is required", name))
+		}
+		if !c.QueryParams().Has(name) && def != nil {
+			return def, nil
+		}
+	}
+
+	if minLength != nil && len(value) < int(*minLength) {
+		return nil, sendHTTPError(c, fmt.Errorf("parameter %v: string length less than minimum %d", name, *minLength))
+	}
+	if maxLength != nil && len(value) > int(*maxLength) {
+		return nil, sendHTTPError(c, fmt.Errorf("parameter %v: string length more than maximum %d", name, *maxLength))
+	}
+
+	if enum != nil {
+		isFound := false
+		for _, e := range enum {
+			if e == value {
+				isFound = true
+				break
+			}
+		}
+		if !isFound {
+			return nil, sendHTTPError(c, fmt.Errorf("parameter %v: string is not in allowed values", name))
+		}
+	}
+	return &value, nil
+}
+
+func getIntParam(c echo.Context, isInPath bool, name string, isRequired bool, min *int64, max *int64, def *int64, enum []int64) (*int64, error) {
+	var value64 int64
+
+	if isInPath {
+		valueRaw := c.Param(name)
+		if isRequired && valueRaw == "" {
+			return nil, sendHTTPError(c, fmt.Errorf("path parameter %v: value is required", name))
+		}
+		if valueRaw == "" && def != nil {
+			return def, nil
+		}
+	} else {
+		if isRequired && c.QueryParams().Has(name) {
+			return nil, sendHTTPError(c, fmt.Errorf("query parameter %v: value is required", name))
+		}
+		if !c.QueryParams().Has(name) && def != nil {
+			return def, nil
+		}
+		valueRaw := c.QueryParam(name)
+		value, err := strconv.Atoi(valueRaw)
+		if err != nil {
+			return nil, sendHTTPError(c, fmt.Errorf("parameter %v: wrong int value '%v'", name, valueRaw))
+		}
+		value64 = int64(value)
+	}
+
+	if min != nil && value64 < *min {
+		return nil, sendHTTPError(c, fmt.Errorf("parameter %v: value %d less than minimum %d", name, value64, *min))
+	}
+	if max != nil && value64 > *max {
+		return nil, sendHTTPError(c, fmt.Errorf("parameter %v: value %d more than maximum %d", name, value64, *max))
+	}
+	if enum != nil {
+		isFound := false
+		for _, e := range enum {
+			if e == value64 {
+				isFound = true
+				break
+			}
+		}
+		if !isFound {
+			return nil, sendHTTPError(c, fmt.Errorf("parameter %v: value %d is not in allowed values", name, value64))
+		}
+	}
+	return &value64, nil
+}
+
+func intPointer(value int64) *int64 {
+    p := new(int64)
+    *p = value
+    return p
+}
+
+func stringPointer(value string) *string {
+    p := new(string)
+    *p = value
+    return p
+}
+
+func BuildRoutes(e *echo.Group, controller Controller) {
+{{- range $path, $operations := .Paths }}
+{{- range $method, $operation := $operations }}
+    {{ if $operation.Summary }}// {{ $operation.Summary }} {{ end }}
+    e.{{ toUpper $method }}("{{ toColumnParametersPath $path }}", func(c echo.Context) error {
+        {{ $methodName := pathToMethodName $path $method -}}
+        parameters := {{ $methodName }}Params{}
+
+        {{ range $operation.Parameters }}
+        {{ if eq .Schema.Type "string" -}}
+        {{ .Name }}, err := getStringParam(c, {{ if eq .In "path" }}true{{ else }}false{{ end }}, "{{ .Name }}", {{ if .IsRequired }}true{{ else }}false{{ end }}, {{ .Schema.GetDefault }}, {{ .Schema.GetMinimumLength }}, {{ .Schema.GetMaximumLength }}, {{ .Schema.GetSerializedEnums true }})
+        {{ else -}}
+        {{ .Name }}, err := getIntParam(c, {{ if eq .In "path" }}true{{ else }}false{{ end }}, "{{ .Name }}", {{ if .IsRequired }}true{{ else }}false{{ end }}, {{ .Schema.GetMinimum }}, {{ .Schema.GetMaximum }}, {{ .Schema.GetDefault }}, {{ .Schema.GetSerializedEnums false }})
+        {{ end -}}
+        if err != nil {
+            return err
+        }
+        parameters.{{ toCamel .Name }} = {{ if .Required }}*{{ end }}{{ .Name }}
+        {{ end }}
+
+        response := controller.{{ $methodName }}(parameters)
+
+        {{ range $statusCode, $response := $operation.GetResponses -}}
+        if response.HTTP{{ $statusCode }} != nil {
+            return c.JSON({{ $statusCode }}, response.HTTP{{ $statusCode }})
+        }
+        {{ end -}}
+
+        return nil
+    })
+{{ end }}
+{{ end }}
+}
