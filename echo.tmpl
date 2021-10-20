@@ -86,7 +86,7 @@ type {{ pathToMethodName $path $method }}Params struct {
 {{ end }}
 {{ end }}
 
-/* Endpoints responses */
+/* Endpoints response object */
 {{ range $path, $operations := .Paths }}
 {{ range $method, $operation := $operations }}
 {{ range $statusCode, $response := $operation.Responses -}}
@@ -96,7 +96,9 @@ type {{ pathToMethodName $path $method }}HTTP{{ toCamel $statusCode }}Response {
 {{ end }}
 {{ end }}
 {{ end }}
-///////
+
+/* Endpoints responses */
+
 {{ range $path, $operations := .Paths }}
 {{ range $method, $operation := $operations }}
 type {{ pathToMethodName $path $method }}Response struct {
@@ -130,108 +132,6 @@ func sendHTTPBadRequestError(c echo.Context, err error) error {
 	})
 }
 
-func getStringParam(c echo.Context, isInPath bool, name string, isRequired bool, def *string, minLength *int32, maxLength *int32, enum []string) (*string, error) {
-	var value string
-
-	if isInPath {
-		value = c.Param(name)
-		if isRequired && value == "" {
-			return nil, sendHTTPBadRequestError(c, fmt.Errorf("path parameter %v: value is required", name))
-		}
-		if value == "" && def != nil {
-			return def, nil
-		}
-	} else {
-		value = c.QueryParam(name)
-		if isRequired && c.QueryParams().Has(name) {
-			return nil, sendHTTPBadRequestError(c, fmt.Errorf("query parameter %v: value is required", name))
-		}
-		if !c.QueryParams().Has(name) && def != nil {
-			return def, nil
-		}
-	}
-
-	if minLength != nil && len(value) < int(*minLength) {
-		return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: string length less than minimum %d", name, *minLength))
-	}
-	if maxLength != nil && len(value) > int(*maxLength) {
-		return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: string length more than maximum %d", name, *maxLength))
-	}
-
-	if enum != nil {
-		isFound := false
-		for _, e := range enum {
-			if e == value {
-				isFound = true
-				break
-			}
-		}
-		if !isFound {
-			return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: string is not in allowed values", name))
-		}
-	}
-	return &value, nil
-}
-
-func getIntParam(c echo.Context, isInPath bool, name string, isRequired bool, min *int32, max *int32, def *int32, enum []int32) (*int32, error) {
-	var valueInt int32
-
-	if isInPath {
-		valueRaw := c.Param(name)
-		if isRequired && valueRaw == "" {
-			return nil, sendHTTPBadRequestError(c, fmt.Errorf("path parameter %v: value is required", name))
-		}
-		if valueRaw == "" && def != nil {
-			return def, nil
-		}
-	} else {
-		if isRequired && c.QueryParams().Has(name) {
-			return nil, sendHTTPBadRequestError(c, fmt.Errorf("query parameter %v: value is required", name))
-		}
-		if !c.QueryParams().Has(name) && def != nil {
-			return def, nil
-		}
-		valueRaw := c.QueryParam(name)
-		value, err := strconv.Atoi(valueRaw)
-		if err != nil {
-			return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: wrong int value '%v'", name, valueRaw))
-		}
-		valueInt = int32(value)
-	}
-
-	if min != nil && valueInt < *min {
-		return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: value %d less than minimum %d", name, valueInt, *min))
-	}
-	if max != nil && valueInt > *max {
-		return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: value %d more than maximum %d", name, valueInt, *max))
-	}
-	if enum != nil {
-		isFound := false
-		for _, e := range enum {
-			if e == valueInt {
-				isFound = true
-				break
-			}
-		}
-		if !isFound {
-			return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: value %d is not in allowed values", name, valueInt))
-		}
-	}
-	return &valueInt, nil
-}
-
-func intPointer(value int32) *int32 {
-    p := new(int32)
-    *p = value
-    return p
-}
-
-func stringPointer(value string) *string {
-    p := new(string)
-    *p = value
-    return p
-}
-
 func BuildRoutes(e *echo.Group, controller Controller) {
 {{ range $path, $operations := .Paths -}}
 {{ range $method, $operation := $operations -}}
@@ -243,22 +143,18 @@ func BuildRoutes(e *echo.Group, controller Controller) {
             return sendHTTPBadRequestError(c, err)
         }
 
-        {{ if $operation.IsAllEmptyResponses -}}
-            controller.{{ $methodName }}(parameters, c.Response().Writer)
-        {{- else -}}
-            response := controller.{{ $methodName }}(parameters, c.Response().Writer)
-            {{ range $statusCode, $response := $operation.Responses -}}
-            {{- if not $response.IsEmpty -}}
-            if response.HTTP{{ toCamel $statusCode }} != nil {
-                if response.Code == 0 {
-                    response.Code = {{ getDefaultStatusCode $statusCode }}
-                }
-                return c.JSON(response.Code, response.HTTP{{ toCamel $statusCode }})
+        response := controller.{{ $methodName }}(parameters, c.Response().Writer)
+        {{ range $statusCode, $response := $operation.Responses -}}
+        {{- if not $response.IsEmpty -}}
+        if response.HTTP{{ toCamel $statusCode }} != nil {
+            if response.Code == 0 {
+                response.Code = {{ getDefaultStatusCode $statusCode }}
             }
-            {{- end }}
-            {{ end }}
+            return c.JSON(response.Code, response.HTTP{{ toCamel $statusCode }})
+        }
         {{- end }}
-        return nil
+        {{ end }}
+        return c.NoContent(response.Code)
     })
 {{ end }}
 {{ end }}

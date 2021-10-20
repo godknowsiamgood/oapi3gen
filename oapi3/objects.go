@@ -258,15 +258,6 @@ type Operation struct {
 	Responses   map[string]Response `yaml:"responses"`
 }
 
-func (op Operation) IsAllEmptyResponses() bool {
-	for _, r := range op.Responses {
-		if !r.IsEmpty() {
-			return false
-		}
-	}
-	return true
-}
-
 func (op Operation) GetResponses() map[string]Response {
 	responses := make(map[string]Response)
 	for status, response := range op.Responses {

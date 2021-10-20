@@ -129,10 +129,15 @@ func main() {
 		return
 	}
 
-	formattedSource, err := format.Source(sb.Bytes())
-	if err != nil {
-		log("code formatting failed: %v", err)
-		return
+	var formattedSource []byte
+	if os.Getenv("debug") == "" {
+		formattedSource, err = format.Source(sb.Bytes())
+		if err != nil {
+			log("code formatting failed: %v", err)
+			return
+		}
+	} else {
+		formattedSource = sb.Bytes()
 	}
 
 	if genFileOutput != "" {
