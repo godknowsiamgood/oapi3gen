@@ -1,6 +1,7 @@
 package oapi3
 
 import (
+	"github.com/Masterminds/semver"
 	"regexp"
 	"strconv"
 	"strings"
@@ -280,4 +281,13 @@ type Spec struct {
 	BasePath   string                   `yaml:"basePath"`
 	Paths      map[string]PathOperation `yaml:"paths"`
 	Components Components               `yaml:"components"`
+}
+
+func (s Spec) GetPackageName() string {
+	v, err := semver.NewVersion(s.Info.Version)
+	if err != nil {
+		return "v1"
+	} else {
+		return "v" + strconv.Itoa(int(v.Major()))
+	}
 }
