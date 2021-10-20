@@ -9,8 +9,8 @@ import (
 
 type Ref string
 
-func (r Ref) NotSet() bool {
-	return r == ""
+func (r Ref) IsSet() bool {
+	return r != ""
 }
 
 func (r Ref) GetName() (string, string) {
@@ -164,11 +164,8 @@ func (s Schema) IsFieldRequired(fieldName string) bool {
 	return false
 }
 
-func (s Schema) IsObject() bool {
-	return s.Type == "object"
-}
 func (s Schema) IsSet() bool {
-	return !s.Ref.NotSet() || len(s.AllOf) > 0 || s.Type != ""
+	return s.Ref.IsSet() || len(s.AllOf) > 0 || s.Type != ""
 }
 func (s Schema) GetDefault() string {
 	if s.Default == nil {
@@ -244,11 +241,11 @@ type Response struct {
 }
 
 func (r Response) IsInlineStructType() bool {
-	return r.Ref.NotSet() && r.Content.JSON.Schema.Ref.NotSet() && r.Content.JSON.Schema.Type.IsObject()
+	return !r.Ref.IsSet() && !r.Content.JSON.Schema.Ref.IsSet() && r.Content.JSON.Schema.Type.IsObject()
 }
 
 func (r Response) IsEmpty() bool {
-	return r.Ref.NotSet() && r.Content.JSON.Schema.Ref.NotSet() && r.Content.JSON.Schema.Type == ""
+	return !r.Ref.IsSet() && !r.Content.JSON.Schema.Ref.IsSet() && r.Content.JSON.Schema.Type == ""
 }
 
 type Operation struct {
@@ -273,7 +270,7 @@ func (op Operation) GetResponses() map[string]Response {
 		if _, err := strconv.Atoi(status); err != nil {
 			continue
 		}
-		if response.Ref.NotSet() && !response.Content.JSON.Schema.IsSet() {
+		if !response.Ref.IsSet() && !response.Content.JSON.Schema.IsSet() {
 			continue
 		}
 		responses[status] = response
@@ -308,4 +305,24 @@ func (s Spec) GetPackageName() string {
 func (s Spec) HasComponentErrorResponse() bool {
 	_, has := s.Components.Responses["Error"]
 	return has
+}
+
+func (s Spec) IsStructSchema(schema Schema) bool {
+	var check func(schema Schema) bool
+	check = func(schema Schema) bool {
+		if schema.AdditionalProperties != nil {
+			return false
+		}
+		if schema.Type.IsObject() {
+			return true
+		}
+		if schema.Ref.IsSet() {
+			_, name := schema.Ref.GetName()
+			if refSchema, ok := s.Components.Schemas[name]; ok {
+				return check(refSchema)
+			}
+		}
+		return false
+	}
+	return check(schema)
 }

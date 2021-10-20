@@ -18,7 +18,7 @@ import (
 {{- end }}
 
 {{- define "pointerForSchema" }}
-{{- if not .AdditionalProperties -}}*{{ end -}}
+{{- if isStructSchema . -}}*{{ end -}}
 {{ end -}}
 
 {{- define "validation" -}}
@@ -30,8 +30,7 @@ import (
 {{- $parentSchema := . -}}
 {{ range $name, $schema := .Properties -}}
     {{- $isRequired := $parentSchema.IsFieldRequired $name -}}
-    {{- $isObject := $schema.IsObject -}}
-    {{ toCamel $name }} {{ if and (not $isRequired) $isObject }}{{ template "pointerForSchema" $schema }}{{ end }} {{ template "schemaType" $schema }} `json:"{{ $name }}{{ if not $isRequired }},omitempty{{ end }}"`
+    {{ toCamel $name }} {{ if not $isRequired }}{{ template "pointerForSchema" $schema }}{{ end }} {{ template "schemaType" $schema }} `json:"{{ $name }}{{ if not $isRequired }},omitempty{{ end }}"`
 {{ end }}
 {{ end }}
 
