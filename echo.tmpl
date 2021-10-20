@@ -11,9 +11,9 @@ import (
 	"strconv"
 )
 
-{{ define "refOrSchema" }}
-{{- if .Ref -}}{{ .Ref.GetTypeName }}{{ else }}{{ template "schemaType" .Schema }}{{ end }}
-{{ end }}
+{{ define "refOrSchema" -}}
+{{ if .Ref -}}{{ .Ref.GetTypeName }}{{ else }}{{ template "schemaType" .Schema }}{{ end }}
+{{- end }}
 
 {{- define "pointerForSchema" }}
 {{- if not .AdditionalProperties -}}*{{ end -}}
@@ -90,10 +90,28 @@ type {{ pathToMethodName $path $method }}Params struct {
 {{ range $path, $operations := .Paths }}
 {{ range $method, $operation := $operations }}
 {{ range $statusCode, $response := $operation.Responses -}}
-{{ if $response.IsInlineStructType -}}
-type HTTP{{ toCamel $statusCode }}{{ pathToMethodName $path $method }}Response {{ template "refOrSchema" dict "Ref" $response.Ref "Schema" $response.Content.JSON.Schema }}
+{{ if and ($response.IsInlineStructType) (not $response.IsEmpty) -}}
+type {{ pathToMethodName $path $method }}HTTP{{ toCamel $statusCode }}Response {{ template "refOrSchema" dict "Ref" $response.Ref "Schema" $response.Content.JSON.Schema }}
 {{- end }}
 {{ end }}
+{{ end }}
+{{ end }}
+///////
+{{ range $path, $operations := .Paths }}
+{{ range $method, $operation := $operations }}
+type {{ pathToMethodName $path $method }}Response struct {
+    Code int
+    {{ range $statusCode, $response := $operation.Responses -}}
+    {{- if not $response.IsEmpty -}}
+    HTTP{{ toCamel $statusCode }} *
+        {{- if $response.IsInlineStructType -}}
+            {{ pathToMethodName $path $method }}HTTP{{ toCamel $statusCode }}Response
+        {{- else -}}
+            {{ template "refOrSchema" dict "Ref" $response.Ref "Schema" $response.Content.JSON.Schema }}
+        {{- end -}}
+    {{- end }}
+    {{ end }}
+}
 {{ end }}
 {{ end }}
 
@@ -101,7 +119,7 @@ type Controller interface {
     {{ range $path, $operations := .Paths -}}
     {{- range $method, $operation := $operations -}}
     {{- $baseName := pathToMethodName $path $method -}}
-    {{ $baseName }}(params {{ $baseName }}Params, writer http.ResponseWriter) (code int, response interface{})
+    {{ $baseName }}(params {{ $baseName }}Params, writer http.ResponseWriter) {{ $baseName }}Response
     {{ end -}}
     {{- end }}
 }
@@ -112,7 +130,7 @@ func sendHTTPBadRequestError(c echo.Context, err error) error {
 	})
 }
 
-func getStringParam(c echo.Context, isInPath bool, name string, isRequired bool, def *string, minLength *int64, maxLength *int64, enum []string) (*string, error) {
+func getStringParam(c echo.Context, isInPath bool, name string, isRequired bool, def *string, minLength *int32, maxLength *int32, enum []string) (*string, error) {
 	var value string
 
 	if isInPath {
@@ -155,8 +173,8 @@ func getStringParam(c echo.Context, isInPath bool, name string, isRequired bool,
 	return &value, nil
 }
 
-func getIntParam(c echo.Context, isInPath bool, name string, isRequired bool, min *int64, max *int64, def *int64, enum []int64) (*int64, error) {
-	var value64 int64
+func getIntParam(c echo.Context, isInPath bool, name string, isRequired bool, min *int32, max *int32, def *int32, enum []int32) (*int32, error) {
+	var valueInt int32
 
 	if isInPath {
 		valueRaw := c.Param(name)
@@ -178,32 +196,32 @@ func getIntParam(c echo.Context, isInPath bool, name string, isRequired bool, mi
 		if err != nil {
 			return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: wrong int value '%v'", name, valueRaw))
 		}
-		value64 = int64(value)
+		valueInt = int32(value)
 	}
 
-	if min != nil && value64 < *min {
-		return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: value %d less than minimum %d", name, value64, *min))
+	if min != nil && valueInt < *min {
+		return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: value %d less than minimum %d", name, valueInt, *min))
 	}
-	if max != nil && value64 > *max {
-		return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: value %d more than maximum %d", name, value64, *max))
+	if max != nil && valueInt > *max {
+		return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: value %d more than maximum %d", name, valueInt, *max))
 	}
 	if enum != nil {
 		isFound := false
 		for _, e := range enum {
-			if e == value64 {
+			if e == valueInt {
 				isFound = true
 				break
 			}
 		}
 		if !isFound {
-			return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: value %d is not in allowed values", name, value64))
+			return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: value %d is not in allowed values", name, valueInt))
 		}
 	}
-	return &value64, nil
+	return &valueInt, nil
 }
 
-func intPointer(value int64) *int64 {
-    p := new(int64)
+func intPointer(value int32) *int32 {
+    p := new(int32)
     *p = value
     return p
 }
@@ -225,12 +243,22 @@ func BuildRoutes(e *echo.Group, controller Controller) {
             return sendHTTPBadRequestError(c, err)
         }
 
-        code, response := controller.{{ $methodName }}(parameters, c.Response().Writer)
-        if code != 0 {
-            return c.JSON(code, response)
-        } else {
-            return nil
-        }
+        {{ if $operation.IsAllEmptyResponses -}}
+            controller.{{ $methodName }}(parameters, c.Response().Writer)
+        {{- else -}}
+            response := controller.{{ $methodName }}(parameters, c.Response().Writer)
+            {{ range $statusCode, $response := $operation.Responses -}}
+            {{- if not $response.IsEmpty -}}
+            if response.HTTP{{ toCamel $statusCode }} != nil {
+                if response.Code == 0 {
+                    response.Code = {{ getDefaultStatusCode $statusCode }}
+                }
+                return c.JSON(response.Code, response.HTTP{{ toCamel $statusCode }})
+            }
+            {{- end }}
+            {{ end }}
+        {{- end }}
+        return nil
     })
 {{ end }}
 {{ end }}

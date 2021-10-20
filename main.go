@@ -64,6 +64,16 @@ func templateMap(values ...interface{}) (map[string]interface{}, error) {
 	return dict, nil
 }
 
+func getDefaultStatusCode(pattern string) string {
+	if pattern == "default" {
+		return "200"
+	} else if strings.Contains(pattern, "X") {
+		return strings.ReplaceAll(pattern, "X", "0")
+	} else {
+		return pattern
+	}
+}
+
 func log(format string, vars ...interface{}) {
 	_, _ = fmt.Fprintf(os.Stderr, format+"\n", vars...)
 }
@@ -105,6 +115,7 @@ func main() {
 		"toUpper":                strings.ToUpper,
 		"toColumnParametersPath": toColumnParametersPath,
 		"dict":                   templateMap,
+		"getDefaultStatusCode":   getDefaultStatusCode,
 	}).ParseFiles("echo.tmpl")
 	if err != nil {
 		log("failed to compile template: %v", err)

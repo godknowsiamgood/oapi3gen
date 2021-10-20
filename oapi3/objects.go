@@ -43,9 +43,9 @@ func (t Type) GetTypeName() string {
 	case "string":
 		return "string"
 	case "number":
-		return "float64"
+		return "float32"
 	case "integer":
-		return "int64"
+		return "int32"
 	case "boolean":
 		return "bool"
 	}
@@ -135,7 +135,7 @@ func (s Schema) GetSerializedEnums(asStrings bool) string {
 		if asStrings {
 			b.WriteString("[]string{")
 		} else {
-			b.WriteString("[]int64{")
+			b.WriteString("[]int32{")
 		}
 
 		for _, e := range s.Enum {
@@ -247,11 +247,24 @@ func (r Response) IsInlineStructType() bool {
 	return r.Ref.NotSet() && r.Content.JSON.Schema.Ref.NotSet() && r.Content.JSON.Schema.Type.IsObject()
 }
 
+func (r Response) IsEmpty() bool {
+	return r.Ref.NotSet() && r.Content.JSON.Schema.Ref.NotSet() && r.Content.JSON.Schema.Type == ""
+}
+
 type Operation struct {
 	Parameters  []Parameter         `yaml:"parameters"`
 	Summary     string              `yaml:"summary"`
 	Description string              `yaml:"description"`
 	Responses   map[string]Response `yaml:"responses"`
+}
+
+func (op Operation) IsAllEmptyResponses() bool {
+	for _, r := range op.Responses {
+		if !r.IsEmpty() {
+			return false
+		}
+	}
+	return true
 }
 
 func (op Operation) GetResponses() map[string]Response {
