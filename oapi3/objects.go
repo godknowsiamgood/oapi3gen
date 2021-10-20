@@ -72,19 +72,21 @@ func (p Parameter) IsRequired() bool {
 type Schema struct {
 	AllOf []Schema `yaml:"allOf"`
 
-	Ref           Ref               `yaml:"$ref"`
-	Description   string            `yaml:"description"`
-	Type          Type              `yaml:"type"`
-	Minimum       *int              `yaml:"minimum"`
-	Maximum       *int              `yaml:"maximum"`
-	MinimumLength *int              `yaml:"minLength"`
-	MaximumLength *int              `yaml:"maxLength"`
-	Default       *string           `yaml:"default"`
-	Required      []string          `yaml:"required"`
-	Enum          []string          `yaml:"enum"`
-	Items         *Schema           `yaml:"items"`
-	Properties    map[string]Schema `yaml:"properties"`
+	Ref                  Ref               `yaml:"$ref"`
+	Description          string            `yaml:"description"`
+	Type                 Type              `yaml:"type"`
+	Minimum              *int              `yaml:"minimum"`
+	Maximum              *int              `yaml:"maximum"`
+	MinimumLength        *int              `yaml:"minLength"`
+	MaximumLength        *int              `yaml:"maxLength"`
+	Default              *string           `yaml:"default"`
+	Required             []string          `yaml:"required"`
+	Enum                 []string          `yaml:"enum"`
+	Items                *Schema           `yaml:"items"`
+	Properties           map[string]Schema `yaml:"properties"`
+	AdditionalProperties interface{}       `yaml:"additionalProperties"`
 }
+
 func (s Schema) GetValidationTags(isRequired bool) string {
 	var tags []string
 
@@ -92,19 +94,19 @@ func (s Schema) GetValidationTags(isRequired bool) string {
 		tags = append(tags, "required")
 	}
 	if len(s.Enum) > 0 {
-		tags = append(tags, "oneof=" + strings.Join(s.Enum, " "))
+		tags = append(tags, "oneof="+strings.Join(s.Enum, " "))
 	}
 	if s.Minimum != nil {
-		tags = append(tags, "min=" + strconv.Itoa(*s.Minimum))
+		tags = append(tags, "min="+strconv.Itoa(*s.Minimum))
 	}
 	if s.Maximum != nil {
-		tags = append(tags, "max=" + strconv.Itoa(*s.Maximum))
+		tags = append(tags, "max="+strconv.Itoa(*s.Maximum))
 	}
 	if s.MinimumLength != nil {
-		tags = append(tags, "min=" + strconv.Itoa(*s.MinimumLength))
+		tags = append(tags, "min="+strconv.Itoa(*s.MinimumLength))
 	}
 	if s.MaximumLength != nil {
-		tags = append(tags, "max=" + strconv.Itoa(*s.MaximumLength))
+		tags = append(tags, "max="+strconv.Itoa(*s.MaximumLength))
 	}
 	return strings.Join(tags, ",")
 }
@@ -238,6 +240,10 @@ type Response struct {
 			Schema Schema `yaml:"schema"`
 		} `yaml:"application/json"`
 	} `yaml:"content"`
+}
+
+func (r Response) IsInlineStructType() bool {
+	return r.Ref.NotSet() && r.Content.JSON.Schema.Ref.NotSet() && r.Content.JSON.Schema.Type.IsObject()
 }
 
 type Operation struct {

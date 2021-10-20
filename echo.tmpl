@@ -11,6 +11,10 @@ import (
 {{- if .Ref -}}{{ .Ref.GetTypeName }}{{ else }}{{ template "schemaType" .Schema }}{{ end }}
 {{ end }}
 
+{{- define "pointerForSchema" }}
+{{- if not .AdditionalProperties -}}*{{ end -}}
+{{ end -}}
+
 {{- define "validation" -}}
 {{- $tags := .Schema.GetValidationTags .IsRequired -}}
 {{- if $tags }}validate:"{{ $tags }}"{{ end -}}
@@ -21,35 +25,39 @@ import (
 {{ range $name, $schema := .Properties -}}
     {{- $isRequired := $parentSchema.IsFieldRequired $name -}}
     {{- $isObject := $schema.IsObject -}}
-    {{ toCamel $name }} {{ if and (not $isRequired) $isObject }}*{{ end }} {{ template "schemaType" $schema }} `json:"{{ $name }}{{ if not $isRequired }},omitempty{{ end }}"`
+    {{ toCamel $name }} {{ if and (not $isRequired) $isObject }}{{ template "pointerForSchema" $schema }}{{ end }} {{ template "schemaType" $schema }} `json:"{{ $name }}{{ if not $isRequired }},omitempty{{ end }}"`
 {{ end }}
 {{ end }}
 
 {{ define "schemaType" }}
-{{- if .AllOf -}}
-    struct {
-        {{- range .AllOf }}
-            {{ if .Type.IsObject -}}
-                {{ template "properties" . }}
-            {{- end -}}
-            {{- if .Ref -}}
-                {{ .Ref.GetTypeName }}
-            {{- end -}}
-        {{ end -}}
-    }
+{{- if .AdditionalProperties -}}
+    map[string]interface{}
 {{- else -}}
-    {{- if .Ref -}}
-    {{ .Ref.GetTypeName }}
+    {{- if .AllOf -}}
+        struct {
+            {{- range .AllOf }}
+                {{ if .Type.IsObject -}}
+                    {{ template "properties" . }}
+                {{- end -}}
+                {{- if .Ref -}}
+                    {{ .Ref.GetTypeName }}
+                {{- end -}}
+            {{ end -}}
+        }
     {{- else -}}
-        {{- if .Type.IsObject -}}
-            struct {
-                {{ template "properties" . }}
-            }
+        {{- if .Ref -}}
+        {{ .Ref.GetTypeName }}
         {{- else -}}
-            {{ .GetGoType }}
+            {{- if .Type.IsObject -}}
+                struct {
+                    {{ template "properties" . }}
+                }
+            {{- else -}}
+                {{ .GetGoType }}
+            {{- end -}}
         {{- end -}}
-    {{- end -}}
     {{ end -}}
+{{ end -}}
 {{ end -}}
 
 /* Components schemas */
@@ -68,7 +76,7 @@ type {{ $name }}Response {{ template "refOrSchema" dict "Ref" $response.Ref "Sch
 type {{ pathToMethodName $path $method }}Params struct {
     {{ range $operation.Parameters -}}
     {{ toCamel .Name }} {{ if not .IsRequired }}*{{ end }}{{ template "schemaType" .Schema }}{{- " " -}}
-    `{{ if eq .In "path" }}param:"{{ .Name }}"{{ end }} {{ if eq .In "query" }}query:"{{ .Name }}"{{ end }}`
+    `{{ if eq .In "path" }}param:"{{ .Name }}"{{ end }}{{ if eq .In "query" }}query:"{{ .Name }}"{{ end }}`
     {{ end }}
 }
 {{ end }}
@@ -77,25 +85,25 @@ type {{ pathToMethodName $path $method }}Params struct {
 /* Endpoints responses */
 {{ range $path, $operations := .Paths }}
 {{ range $method, $operation := $operations }}
-type {{ pathToMethodName $path $method }}Response struct {
-    {{ range $statusCode, $response := $operation.GetResponses -}}
-    HTTP{{ $statusCode }} *{{ template "refOrSchema" dict "Ref" $response.Ref "Schema" $response.Content.JSON.Schema }}
-    {{- end }}
-}
+{{ range $statusCode, $response := $operation.Responses -}}
+{{ if $response.IsInlineStructType -}}
+type HTTP{{ toCamel $statusCode }}{{ pathToMethodName $path $method }}Response {{ template "refOrSchema" dict "Ref" $response.Ref "Schema" $response.Content.JSON.Schema }}
+{{- end }}
+{{ end }}
 {{ end }}
 {{ end }}
 
 type Controller interface {
-    {{- range $path, $operations := .Paths }}
-    {{- range $method, $operation := $operations }}
-    {{ $baseName := pathToMethodName $path $method }}
-    {{ $baseName }}(params {{ $baseName }}Params) {{ $baseName }}Response
+    {{ range $path, $operations := .Paths -}}
+    {{- range $method, $operation := $operations -}}
+    {{- $baseName := pathToMethodName $path $method -}}
+    {{ $baseName }}(params {{ $baseName }}Params, writer http.ResponseWriter) (code int, response interface{})
     {{ end -}}
-    {{ end}}
+    {{- end }}
 }
 
-func sendHTTPError(c echo.Context, err error) error {
-	return c.JSON(http.StatusBadRequest, BadRequestErrorResponse{
+func sendHTTPBadRequestError(c echo.Context, err error) error {
+	return c.JSON(http.StatusBadRequest, ErrorResponse{
 		Message: err.Error(),
 	})
 }
@@ -106,7 +114,7 @@ func getStringParam(c echo.Context, isInPath bool, name string, isRequired bool,
 	if isInPath {
 		value = c.Param(name)
 		if isRequired && value == "" {
-			return nil, sendHTTPError(c, fmt.Errorf("path parameter %v: value is required", name))
+			return nil, sendHTTPBadRequestError(c, fmt.Errorf("path parameter %v: value is required", name))
 		}
 		if value == "" && def != nil {
 			return def, nil
@@ -114,7 +122,7 @@ func getStringParam(c echo.Context, isInPath bool, name string, isRequired bool,
 	} else {
 		value = c.QueryParam(name)
 		if isRequired && c.QueryParams().Has(name) {
-			return nil, sendHTTPError(c, fmt.Errorf("query parameter %v: value is required", name))
+			return nil, sendHTTPBadRequestError(c, fmt.Errorf("query parameter %v: value is required", name))
 		}
 		if !c.QueryParams().Has(name) && def != nil {
 			return def, nil
@@ -122,10 +130,10 @@ func getStringParam(c echo.Context, isInPath bool, name string, isRequired bool,
 	}
 
 	if minLength != nil && len(value) < int(*minLength) {
-		return nil, sendHTTPError(c, fmt.Errorf("parameter %v: string length less than minimum %d", name, *minLength))
+		return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: string length less than minimum %d", name, *minLength))
 	}
 	if maxLength != nil && len(value) > int(*maxLength) {
-		return nil, sendHTTPError(c, fmt.Errorf("parameter %v: string length more than maximum %d", name, *maxLength))
+		return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: string length more than maximum %d", name, *maxLength))
 	}
 
 	if enum != nil {
@@ -137,7 +145,7 @@ func getStringParam(c echo.Context, isInPath bool, name string, isRequired bool,
 			}
 		}
 		if !isFound {
-			return nil, sendHTTPError(c, fmt.Errorf("parameter %v: string is not in allowed values", name))
+			return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: string is not in allowed values", name))
 		}
 	}
 	return &value, nil
@@ -149,14 +157,14 @@ func getIntParam(c echo.Context, isInPath bool, name string, isRequired bool, mi
 	if isInPath {
 		valueRaw := c.Param(name)
 		if isRequired && valueRaw == "" {
-			return nil, sendHTTPError(c, fmt.Errorf("path parameter %v: value is required", name))
+			return nil, sendHTTPBadRequestError(c, fmt.Errorf("path parameter %v: value is required", name))
 		}
 		if valueRaw == "" && def != nil {
 			return def, nil
 		}
 	} else {
 		if isRequired && c.QueryParams().Has(name) {
-			return nil, sendHTTPError(c, fmt.Errorf("query parameter %v: value is required", name))
+			return nil, sendHTTPBadRequestError(c, fmt.Errorf("query parameter %v: value is required", name))
 		}
 		if !c.QueryParams().Has(name) && def != nil {
 			return def, nil
@@ -164,16 +172,16 @@ func getIntParam(c echo.Context, isInPath bool, name string, isRequired bool, mi
 		valueRaw := c.QueryParam(name)
 		value, err := strconv.Atoi(valueRaw)
 		if err != nil {
-			return nil, sendHTTPError(c, fmt.Errorf("parameter %v: wrong int value '%v'", name, valueRaw))
+			return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: wrong int value '%v'", name, valueRaw))
 		}
 		value64 = int64(value)
 	}
 
 	if min != nil && value64 < *min {
-		return nil, sendHTTPError(c, fmt.Errorf("parameter %v: value %d less than minimum %d", name, value64, *min))
+		return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: value %d less than minimum %d", name, value64, *min))
 	}
 	if max != nil && value64 > *max {
-		return nil, sendHTTPError(c, fmt.Errorf("parameter %v: value %d more than maximum %d", name, value64, *max))
+		return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: value %d more than maximum %d", name, value64, *max))
 	}
 	if enum != nil {
 		isFound := false
@@ -184,7 +192,7 @@ func getIntParam(c echo.Context, isInPath bool, name string, isRequired bool, mi
 			}
 		}
 		if !isFound {
-			return nil, sendHTTPError(c, fmt.Errorf("parameter %v: value %d is not in allowed values", name, value64))
+			return nil, sendHTTPBadRequestError(c, fmt.Errorf("parameter %v: value %d is not in allowed values", name, value64))
 		}
 	}
 	return &value64, nil
@@ -203,34 +211,22 @@ func stringPointer(value string) *string {
 }
 
 func BuildRoutes(e *echo.Group, controller Controller) {
-{{- range $path, $operations := .Paths }}
-{{- range $method, $operation := $operations }}
-    {{ if $operation.Summary }}// {{ $operation.Summary }} {{ end }}
+{{ range $path, $operations := .Paths -}}
+{{ range $method, $operation := $operations -}}
+    {{ if $operation.Description }}// {{ $operation.Description }} {{ end }}
     e.{{ toUpper $method }}("{{ toColumnParametersPath $path }}", func(c echo.Context) error {
         {{ $methodName := pathToMethodName $path $method -}}
         parameters := {{ $methodName }}Params{}
-
-        {{ range $operation.Parameters }}
-        {{ if eq .Schema.Type "string" -}}
-        {{ .Name }}, err := getStringParam(c, {{ if eq .In "path" }}true{{ else }}false{{ end }}, "{{ .Name }}", {{ if .IsRequired }}true{{ else }}false{{ end }}, {{ .Schema.GetDefault }}, {{ .Schema.GetMinimumLength }}, {{ .Schema.GetMaximumLength }}, {{ .Schema.GetSerializedEnums true }})
-        {{ else -}}
-        {{ .Name }}, err := getIntParam(c, {{ if eq .In "path" }}true{{ else }}false{{ end }}, "{{ .Name }}", {{ if .IsRequired }}true{{ else }}false{{ end }}, {{ .Schema.GetMinimum }}, {{ .Schema.GetMaximum }}, {{ .Schema.GetDefault }}, {{ .Schema.GetSerializedEnums false }})
-        {{ end -}}
-        if err != nil {
-            return err
+        if err := c.Bind(&parameters); err != nil {
+            return sendHTTPBadRequestError(c, err)
         }
-        parameters.{{ toCamel .Name }} = {{ if .Required }}*{{ end }}{{ .Name }}
-        {{ end }}
 
-        response := controller.{{ $methodName }}(parameters)
-
-        {{ range $statusCode, $response := $operation.GetResponses -}}
-        if response.HTTP{{ $statusCode }} != nil {
-            return c.JSON({{ $statusCode }}, response.HTTP{{ $statusCode }})
+        code, response := controller.{{ $methodName }}(parameters, c.Response().Writer)
+        if code != 0 {
+            return c.JSON(code, response)
+        } else {
+            return nil
         }
-        {{ end -}}
-
-        return nil
     })
 {{ end }}
 {{ end }}

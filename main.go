@@ -34,6 +34,7 @@ func PathToMethodName(path string, method string) string {
 
 	r, _ := regexp.Compile("(\\w+)")
 
+	path = strings.ReplaceAll(path, "_", " ")
 	parts := r.FindAllString(path, 10)
 	for _, p := range parts {
 		b.WriteString(strings.Title(p))
@@ -63,8 +64,8 @@ func templateMap(values ...interface{}) (map[string]interface{}, error) {
 	return dict, nil
 }
 
-func log(format string, vars... interface{}) {
-	_, _ = fmt.Fprintf(os.Stderr, format + "\n", vars...)
+func log(format string, vars ...interface{}) {
+	_, _ = fmt.Fprintf(os.Stderr, format+"\n", vars...)
 }
 
 func main() {
@@ -95,7 +96,7 @@ func main() {
 
 	s := oapi3.Spec{}
 
-	content, _ := ioutil.ReadFile("./v1.yml")
+	content, _ := ioutil.ReadFile(specFileName)
 	if err := yaml.Unmarshal(content, &s); err != nil {
 		log("schema parsing failed: %v", err)
 		return
