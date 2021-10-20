@@ -101,6 +101,7 @@ type {{ pathToMethodName $path $method }}HTTP{{ toCamel $statusCode }}Response {
 
 {{ range $path, $operations := .Paths }}
 {{ range $method, $operation := $operations }}
+{{ if not $operation.IsAllEmptyResponses }}
 type {{ pathToMethodName $path $method }}Response struct {
     Code int
     {{ range $statusCode, $response := $operation.Responses -}}
@@ -116,12 +117,18 @@ type {{ pathToMethodName $path $method }}Response struct {
 }
 {{ end }}
 {{ end }}
+{{ end }}
 
 type Controller interface {
     {{ range $path, $operations := .Paths -}}
     {{- range $method, $operation := $operations -}}
     {{- $baseName := pathToMethodName $path $method -}}
-    {{ $baseName }}(params {{ $baseName }}Params, writer http.ResponseWriter) {{ $baseName }}Response
+    {{ $baseName }}(params {{ $baseName }}Params, writer http.ResponseWriter)
+        {{- if not $operation.IsAllEmptyResponses -}}
+        {{ $baseName }}Response
+        {{- else -}}
+        int
+        {{- end }}
     {{ end -}}
     {{- end }}
 }
@@ -154,7 +161,12 @@ func BuildRoutes(e *echo.Group, controller Controller) {
         }
         {{- end }}
         {{ end }}
+
+        {{ if $operation.IsAllEmptyResponses -}}
+        return c.NoContent(response)
+        {{- else -}}
         return c.NoContent(response.Code)
+        {{- end }}
     })
 {{ end }}
 {{ end }}
