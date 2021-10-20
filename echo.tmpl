@@ -133,29 +133,13 @@ type Controller interface {
         {{- end }}, error)
     {{ end -}}
     {{- end }}
-    {{ if $hasComponentErrorResponse }}Error(err Error) ErrorResponse{{ end }}
+    {{ if $hasComponentErrorResponse }}Error(err error) ErrorResponse{{ end }}
 }
 
 func sendHTTPBadRequestError(c echo.Context, err error) error {
 	return c.JSON(http.StatusBadRequest, ErrorResponse{
 		Message: err.Error(),
 	})
-}
-
-type Error struct {
-	Code int
-	Err  error
-}
-
-func (e Error) Error() string {
-	return e.Err.Error()
-}
-
-func WrapError(code int, err error) error {
-	return &Error{
-		Code: code,
-		Err:  err,
-	}
 }
 
 func BuildRoutes(e *echo.Group, controller Controller) {
@@ -170,9 +154,9 @@ func BuildRoutes(e *echo.Group, controller Controller) {
         }
 
         response, err := controller.{{ $methodName }}(parameters, c.Response().Writer)
-        if resErr, ok := err.(Error); ok {
+        if err != nil {
             {{ if $hasComponentErrorResponse -}}
-			return c.JSON(resErr.Code, controller.Error(resErr))
+			return c.JSON({{ if $operation.IsAllEmptyResponses }}response{{ else }}response.Code{{ end }}, controller.Error(err))
             {{- else -}}
             // Define #/components/responses/Error object for handy error handling
             {{- end }}
