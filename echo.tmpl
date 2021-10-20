@@ -130,10 +130,10 @@ type Controller interface {
         {{ $baseName }}Response
         {{- else -}}
         int
-        {{- end }}, error)
+        {{- end }}, string)
     {{ end -}}
     {{- end }}
-    {{ if $hasComponentErrorResponse }}Error(err error) ErrorResponse{{ end }}
+    {{ if $hasComponentErrorResponse }}Error(err string) ErrorResponse{{ end }}
 }
 
 func sendHTTPBadRequestError(c echo.Context, err error) error {
@@ -154,7 +154,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
         }
 
         response, err := controller.{{ $methodName }}(parameters, c.Response().Writer)
-        if err != nil {
+        if err != "" {
             {{ if $hasComponentErrorResponse -}}
 			return c.JSON({{ if $operation.IsAllEmptyResponses }}response{{ else }}response.Code{{ end }}, controller.Error(err))
             {{- else -}}
