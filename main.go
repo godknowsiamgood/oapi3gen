@@ -78,9 +78,6 @@ func main() {
 	var genFileOutput string
 	if len(os.Args) == 3 {
 		genFileOutput = os.Args[2]
-	} else {
-		name := strings.TrimSuffix(specFileName, filepath.Ext(specFileName))
-		genFileOutput = name + ".go"
 	}
 
 	doc, err := openapi3.NewLoader().LoadFromFile(specFileName)
@@ -102,13 +99,17 @@ func main() {
 		return
 	}
 
-	t, _ := template.New("echo.tmpl").Funcs(template.FuncMap{
+	t, err := template.New("echo.tmpl").Funcs(template.FuncMap{
 		"pathToMethodName":       PathToMethodName,
 		"toCamel":                strcase.ToCamel,
 		"toUpper":                strings.ToUpper,
 		"toColumnParametersPath": toColumnParametersPath,
 		"dict":                   templateMap,
 	}).ParseFiles("echo.tmpl")
+	if err != nil {
+		log("failed to compile template: %v", err)
+		return
+	}
 
 	sb := new(bytes.Buffer)
 
@@ -123,12 +124,18 @@ func main() {
 		return
 	}
 
-	genDirOutput := filepath.Dir(genFileOutput)
-	if err := os.MkdirAll(genDirOutput, 0750); err != nil {
-		log("saving generated code failed: %v", err)
-	}
-	if err := ioutil.WriteFile(genFileOutput, formattedSource, 0755); err != nil {
-		log("saving generated code failed: %v", err)
-		return
+	if genFileOutput != "" {
+		genDirOutput := filepath.Dir(genFileOutput)
+		if err := os.MkdirAll(genDirOutput, 0750); err != nil {
+			log("saving generated code failed: %v", err)
+		}
+		if err := ioutil.WriteFile(genFileOutput, formattedSource, 0755); err != nil {
+			log("saving generated code failed: %v", err)
+			return
+		}
+	} else {
+		if _, err := fmt.Fprintf(os.Stdout, "%s", formattedSource); err != nil {
+			log("%v", err)
+		}
 	}
 }
