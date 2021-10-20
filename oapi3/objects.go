@@ -24,7 +24,7 @@ func (r Ref) GetTypeName() string {
 
 	switch typ {
 	case "schemas":
-		return name
+		return name + "Schema"
 	case "responses":
 		return name + "Response"
 	}
@@ -303,4 +303,9 @@ func (s Spec) GetPackageName() string {
 	} else {
 		return "v" + strconv.Itoa(int(v.Major()))
 	}
+}
+
+func (s Spec) HasComponentErrorResponse() bool {
+	_, has := s.Components.Responses["Error"]
+	return has
 }

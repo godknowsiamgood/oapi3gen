@@ -11,6 +11,8 @@ import (
 	"strconv"
 )
 
+{{ $hasComponentErrorResponse := .HasComponentErrorResponse }}
+
 {{ define "refOrSchema" -}}
 {{ if .Ref -}}{{ .Ref.GetTypeName }}{{ else }}{{ template "schemaType" .Schema }}{{ end }}
 {{- end }}
@@ -66,7 +68,7 @@ import (
 
 /* Components schemas */
 {{ range $name, $schema := .Components.Schemas }}
-type {{ $name }} {{ template "schemaType" $schema }}
+type {{ $name }}Schema {{ template "schemaType" $schema }}
 {{ end }}
 
 /* Components responses */
@@ -123,20 +125,37 @@ type Controller interface {
     {{ range $path, $operations := .Paths -}}
     {{- range $method, $operation := $operations -}}
     {{- $baseName := pathToMethodName $path $method -}}
-    {{ $baseName }}(params {{ $baseName }}Params, writer http.ResponseWriter)
+    {{ $baseName }}(params {{ $baseName }}Params, writer http.ResponseWriter) (
         {{- if not $operation.IsAllEmptyResponses -}}
         {{ $baseName }}Response
         {{- else -}}
         int
-        {{- end }}
+        {{- end }}, error)
     {{ end -}}
     {{- end }}
+    {{ if $hasComponentErrorResponse }}Error(err Error) ErrorResponse{{ end }}
 }
 
 func sendHTTPBadRequestError(c echo.Context, err error) error {
 	return c.JSON(http.StatusBadRequest, ErrorResponse{
 		Message: err.Error(),
 	})
+}
+
+type Error struct {
+	Code int
+	Err  error
+}
+
+func (e Error) Error() string {
+	return e.Err.Error()
+}
+
+func WrapError(code int, err error) error {
+	return &Error{
+		Code: code,
+		Err:  err,
+	}
 }
 
 func BuildRoutes(e *echo.Group, controller Controller) {
@@ -150,7 +169,14 @@ func BuildRoutes(e *echo.Group, controller Controller) {
             return sendHTTPBadRequestError(c, err)
         }
 
-        response := controller.{{ $methodName }}(parameters, c.Response().Writer)
+        response, err := controller.{{ $methodName }}(parameters, c.Response().Writer)
+        if resErr, ok := err.(Error); ok {
+            {{ if $hasComponentErrorResponse -}}
+			return c.JSON(resErr.Code, controller.Error(resErr))
+            {{- else -}}
+            // Define #/components/responses/Error object for handy error handling
+            {{- end }}
+        }
         {{ range $statusCode, $response := $operation.Responses -}}
         {{- if not $response.IsEmpty -}}
         if response.HTTP{{ toCamel $statusCode }} != nil {
