@@ -318,27 +318,44 @@ func (s Spec) HasComponentErrorResponse() bool {
 	return has
 }
 
-func (s Spec) IsNillableSchema(schema Schema) bool {
-	var check func(schema Schema) bool
-	check = func(schema Schema) bool {
-		if schema.AdditionalProperties != nil {
-			// will be generated map type
-			return false
-		}
-
-		if schema.Type.IsArray() {
-			// will be generated slice type
-			return false
+func (s Spec) traverseSchema(schema Schema, cb func(Schema) bool) bool {
+	var traverse func(schema Schema) bool
+	traverse = func(schema Schema) bool {
+		if cb(schema) == true {
+			return true
 		}
 
 		if schema.Ref.IsSet() {
 			_, name := schema.Ref.GetName()
 			if refSchema, ok := s.Components.Schemas[name]; ok {
-				return check(refSchema)
+				return traverse(refSchema)
 			}
 		}
 
-		return true
+		return false
 	}
-	return check(schema)
+	return traverse(schema)
+}
+
+func (s Spec) IsNillableSchema(schema Schema) bool {
+	return s.traverseSchema(schema, func(schema Schema) bool {
+		if schema.AdditionalProperties != nil {
+			// will be generated map type
+			return true
+		}
+		if schema.Type.IsArray() {
+			// will be generated slice type
+			return true
+		}
+		return false
+	})
+}
+
+func (s Spec) IsStructSchema(schema Schema) bool {
+	return s.traverseSchema(schema, func(schema Schema) bool {
+		if schema.Type.IsObject() && schema.AdditionalProperties == nil {
+			return true
+		}
+		return false
+	})
 }
