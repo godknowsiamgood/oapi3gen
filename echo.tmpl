@@ -158,7 +158,11 @@ func sendHTTPBadRequestError(c echo.Context, err error) error {
 	})
 }
 
-func BuildRoutes(e *echo.Group, controller Controller) {
+func BuildRoutes(e *echo.Group, controller Controller
+{{- if .GetAllMiddlewareNames -}}
+{{ range .GetAllMiddlewareNames }}, {{ toLowerCamel . }} echo.MiddlewareFunc{{ end }}
+{{- end -}}
+) {
 {{ range $path, $operations := .Paths -}}
 {{ range $method, $operation := $operations -}}
     {{ if $operation.Description }}// {{ $operation.Description }} {{ end }}
@@ -193,7 +197,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
         {{- else -}}
         return c.NoContent(response.Code)
         {{- end }}
-    })
+    }{{ range $operation.XMiddlewares }}, {{ . }}{{ end }})
 {{ end }}
 {{ end }}
 }

@@ -3,6 +3,7 @@ package oapi3
 import (
 	"github.com/Masterminds/semver"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -268,10 +269,11 @@ func (r Response) IsEmpty() bool {
 }
 
 type Operation struct {
-	Parameters  []Parameter         `yaml:"parameters"`
-	Summary     string              `yaml:"summary"`
-	Description string              `yaml:"description"`
-	Responses   map[string]Response `yaml:"responses"`
+	Parameters   []Parameter         `yaml:"parameters"`
+	Summary      string              `yaml:"summary"`
+	Description  string              `yaml:"description"`
+	Responses    map[string]Response `yaml:"responses"`
+	XMiddlewares []string            `yaml:"x-middlewares"`
 }
 
 func (op Operation) IsAllEmptyResponses() bool {
@@ -404,4 +406,24 @@ func (s Spec) GetUnderlyingSchema(ref Ref) Schema {
 	}
 
 	return Schema{}
+}
+
+func (s Spec) GetAllMiddlewareNames() []string {
+	middlewaresMap := make(map[string]bool)
+	for _, operations := range s.Paths {
+		for _, operation := range operations {
+			for _, middlewareName := range operation.XMiddlewares {
+				middlewaresMap[middlewareName] = true
+			}
+		}
+	}
+
+	var middlewares []string
+	for name, _ := range middlewaresMap {
+		middlewares = append(middlewares, name)
+	}
+
+	sort.Strings(middlewares)
+
+	return middlewares
 }

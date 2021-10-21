@@ -112,6 +112,7 @@ func main() {
 	t, err := template.New("echo.tmpl").Funcs(template.FuncMap{
 		"pathToMethodName":       PathToMethodName,
 		"toCamel":                strcase.ToCamel,
+		"toLowerCamel":           strcase.ToLowerCamel,
 		"toUpper":                strings.ToUpper,
 		"toColumnParametersPath": toColumnParametersPath,
 		"dict":                   templateMap,
