@@ -12,16 +12,30 @@ import (
 {{ $hasComponentErrorResponse := .HasComponentErrorResponse }}
 
 {{ define "refOrSchema" -}}
-{{ if .Ref -}}{{ .Ref.GetTypeName }}{{ else }}{{ template "schemaType" .Schema }}{{ end }}
+{{ if .Ref -}}
+    {{ if .IsOptional -}}
+        {{- template "pointerForRef" .Ref -}}
+    {{- end }}
+    {{- .Ref.GetTypeName -}}
+{{- else -}}
+    {{ if .IsOptional -}}
+        {{- template "pointerForSchema" .Schema -}}
+    {{- end }}
+    {{- template "schemaType" .Schema -}}
+{{- end }}
 {{- end }}
 
-{{- define "pointerForSchema" }}
-{{- if not (isNillableSchema .) -}}*{{ end -}}
-{{ end -}}
+{{- define "pointerForSchema" -}}
+{{ if not (isNillableSchema .) -}}*{{ end }}
+{{- end -}}
 
-{{- define "pointerForNotOmmitableSchema" }}
-{{- if isStructSchema . -}}*{{ end -}}
-{{ end -}}
+{{- define "pointerForOmmitableSchema" -}}
+{{ if not (isOmmitableSchema .) -}}*{{ end }}
+{{- end -}}
+
+{{- define "pointerForRef" -}}
+{{ if not (isNillableSchema (getUnderlyingSchema .)) }}*{{ end }}
+{{- end -}}
 
 {{- define "validation" -}}
 {{- $tags := .Schema.GetValidationTags .IsRequired -}}
@@ -31,8 +45,8 @@ import (
 {{ define "properties" }}
 {{- $parentSchema := . -}}
 {{ range $name, $schema := .Properties -}}
-    {{- $isRequired := $parentSchema.IsFieldRequired $name -}}
-    {{ toCamel $name }} {{ if not $isRequired }}{{ template "pointerForNotOmmitableSchema" $schema }}{{ end }} {{ template "schemaType" $schema }} `json:"{{ $name }}{{ if not $isRequired }},omitempty{{ end }}"`
+    {{- $isOptional := $parentSchema.IsFieldOptional $name -}}
+    {{ toCamel $name }} {{ if $isOptional }}{{ template "pointerForOmmitableSchema" $schema }}{{ end }}{{ template "schemaType" $schema }} `json:"{{ $name }}{{ if $isOptional }},omitempty{{ end }}"`
 {{ end }}
 {{ end }}
 
@@ -82,19 +96,19 @@ type {{ $name }}Response {{ template "refOrSchema" dict "Ref" $response.Ref "Sch
 {{ range $method, $operation := $operations }}
 type {{ pathToMethodName $path $method }}Params struct {
     {{ range $operation.Parameters -}}
-    {{ toCamel .Name }} {{ if not .IsRequired }}*{{ end }}{{ template "schemaType" .Schema }}{{- " " -}}
+    {{ toCamel .Name }} {{ if not .IsRequired }}{{ template "pointerForSchema" .Schema }}{{ end }}{{ template "schemaType" .Schema }}{{- " " -}}
     `{{ if eq .In "path" }}param:"{{ .Name }}"{{ end }}{{ if eq .In "query" }}query:"{{ .Name }}"{{ end }}`
     {{ end }}
 }
 {{ end }}
 {{ end }}
 
-/* Endpoints response object */
+/* Endpoints response objects */
 {{ range $path, $operations := .Paths }}
 {{ range $method, $operation := $operations }}
 {{ range $statusCode, $response := $operation.Responses -}}
 {{ if and ($response.IsInlineStructType) (not $response.IsEmpty) -}}
-type {{ pathToMethodName $path $method }}HTTP{{ toCamel $statusCode }}Response {{ template "refOrSchema" dict "Ref" $response.Ref "Schema" $response.Content.JSON.Schema }}
+type {{ pathToMethodName $path $method }}HTTP{{ toCamel $statusCode }}Response {{ template "schemaType" $response.Content.JSON.Schema }}
 {{- end }}
 {{ end }}
 {{ end }}
@@ -109,11 +123,12 @@ type {{ pathToMethodName $path $method }}Response struct {
     Code int
     {{ range $statusCode, $response := $operation.Responses -}}
     {{- if not $response.IsEmpty -}}
-    HTTP{{ toCamel $statusCode }} {{ template "pointerForSchema" $response.Content.JSON.Schema }}
+    HTTP{{ toCamel $statusCode }}{{- " " -}}
         {{- if $response.IsInlineStructType -}}
-            {{ pathToMethodName $path $method }}HTTP{{ toCamel $statusCode }}Response
+            {{- template "pointerForSchema" $response.Content.JSON.Schema -}}
+            {{- pathToMethodName $path $method }}HTTP{{ toCamel $statusCode }}Response
         {{- else -}}
-            {{ template "refOrSchema" dict "Ref" $response.Ref "Schema" $response.Content.JSON.Schema }}
+            {{- template "refOrSchema" dict "Ref" $response.Ref "Schema" $response.Content.JSON.Schema "IsOptional" true -}}
         {{- end -}}
     {{- end }}
     {{ end }}

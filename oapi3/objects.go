@@ -13,14 +13,19 @@ func (r Ref) IsSet() bool {
 	return r != ""
 }
 
-func (r Ref) GetName() (string, string) {
+func (r Ref) GetName() string {
+	_, name := r.GetFullName()
+	return name
+}
+
+func (r Ref) GetFullName() (string, string) {
 	reg, _ := regexp.Compile("#/components/(schemas|responses)/(.+)")
 	res := reg.FindAllStringSubmatch(string(r), 2)
 	return res[0][1], res[0][2]
 }
 
 func (r Ref) GetTypeName() string {
-	typ, name := r.GetName()
+	typ, name := r.GetFullName()
 
 	switch typ {
 	case "schemas":
@@ -39,6 +44,9 @@ func (t Type) IsObject() bool {
 }
 func (t Type) IsArray() bool {
 	return t == "array"
+}
+func (t Type) IsPrimitive() bool {
+	return t == "string" || t == "number" || t == "boolean" || t == "integer"
 }
 
 func (t Type) GetTypeName() string {
@@ -158,13 +166,13 @@ func (s Schema) GetSerializedEnums(asStrings bool) string {
 	}
 }
 
-func (s Schema) IsFieldRequired(fieldName string) bool {
+func (s Schema) IsFieldOptional(fieldName string) bool {
 	for _, r := range s.Required {
 		if fieldName == r {
-			return true
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 func (s Schema) IsSet() bool {
@@ -326,8 +334,7 @@ func (s Spec) traverseSchema(schema Schema, cb func(Schema) bool) bool {
 		}
 
 		if schema.Ref.IsSet() {
-			_, name := schema.Ref.GetName()
-			if refSchema, ok := s.Components.Schemas[name]; ok {
+			if refSchema, ok := s.Components.Schemas[schema.Ref.GetName()]; ok {
 				return traverse(refSchema)
 			}
 		}
@@ -351,6 +358,24 @@ func (s Spec) IsNillableSchema(schema Schema) bool {
 	})
 }
 
+func (s Spec) IsOmmitableSchema(schema Schema) bool {
+	return s.traverseSchema(schema, func(schema Schema) bool {
+		if schema.AdditionalProperties != nil {
+			// will be generated map type
+			return true
+		}
+		if schema.Type.IsArray() {
+			// will be generated slice type
+			return true
+		}
+		if schema.Type.IsPrimitive() {
+			// will be generated slice type
+			return true
+		}
+		return false
+	})
+}
+
 func (s Spec) IsStructSchema(schema Schema) bool {
 	return s.traverseSchema(schema, func(schema Schema) bool {
 		if schema.Type.IsObject() && schema.AdditionalProperties == nil {
@@ -358,4 +383,25 @@ func (s Spec) IsStructSchema(schema Schema) bool {
 		}
 		return false
 	})
+}
+
+func (s Spec) GetUnderlyingSchema(ref Ref) Schema {
+	component, name := ref.GetFullName()
+	if component == "schemas" {
+		schema := s.Components.Schemas[name]
+		if schema.Ref.IsSet() {
+			return s.GetUnderlyingSchema(schema.Ref)
+		} else {
+			return schema
+		}
+	} else if component == "responses" {
+		response := s.Components.Responses[name]
+		if response.Ref.IsSet() {
+			return s.GetUnderlyingSchema(response.Ref)
+		} else {
+			return response.Content.JSON.Schema
+		}
+	}
+
+	return Schema{}
 }

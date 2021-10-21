@@ -117,7 +117,9 @@ func main() {
 		"dict":                   templateMap,
 		"getDefaultStatusCode":   getDefaultStatusCode,
 		"isNillableSchema":       s.IsNillableSchema,
+		"isOmmitableSchema":      s.IsOmmitableSchema,
 		"isStructSchema":         s.IsStructSchema,
+		"getUnderlyingSchema":    s.GetUnderlyingSchema,
 	}).ParseFiles("echo.tmpl")
 	if err != nil {
 		log("failed to compile template: %v", err)
