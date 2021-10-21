@@ -16,7 +16,7 @@ import (
 {{- end }}
 
 {{- define "pointerForSchema" }}
-{{- if isStructSchema . -}}*{{ end -}}
+{{- if isNillableSchema . -}}*{{ end -}}
 {{ end -}}
 
 {{- define "validation" -}}
@@ -105,7 +105,7 @@ type {{ pathToMethodName $path $method }}Response struct {
     Code int
     {{ range $statusCode, $response := $operation.Responses -}}
     {{- if not $response.IsEmpty -}}
-    HTTP{{ toCamel $statusCode }} *
+    HTTP{{ toCamel $statusCode }} {{ template "pointerForSchema" $response.Content.JSON.Schema }}
         {{- if $response.IsInlineStructType -}}
             {{ pathToMethodName $path $method }}HTTP{{ toCamel $statusCode }}Response
         {{- else -}}

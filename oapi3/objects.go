@@ -37,6 +37,9 @@ type Type string
 func (t Type) IsObject() bool {
 	return t == "object"
 }
+func (t Type) IsArray() bool {
+	return t == "array"
+}
 
 func (t Type) GetTypeName() string {
 	switch t {
@@ -241,7 +244,15 @@ type Response struct {
 }
 
 func (r Response) IsInlineStructType() bool {
-	return !r.Ref.IsSet() && !r.Content.JSON.Schema.Ref.IsSet() && r.Content.JSON.Schema.Type.IsObject()
+	if r.Ref.IsSet() || r.Content.JSON.Schema.Ref.IsSet() {
+		return false
+	}
+
+	if r.Content.JSON.Schema.Type.IsObject() && r.Content.JSON.Schema.AdditionalProperties == nil {
+		return true
+	}
+
+	return false
 }
 
 func (r Response) IsEmpty() bool {
@@ -307,22 +318,27 @@ func (s Spec) HasComponentErrorResponse() bool {
 	return has
 }
 
-func (s Spec) IsStructSchema(schema Schema) bool {
+func (s Spec) IsNillableSchema(schema Schema) bool {
 	var check func(schema Schema) bool
 	check = func(schema Schema) bool {
 		if schema.AdditionalProperties != nil {
+			// will be generated map type
 			return false
 		}
-		if schema.Type.IsObject() {
-			return true
+
+		if schema.Type.IsArray() {
+			// will be generated slice type
+			return false
 		}
+
 		if schema.Ref.IsSet() {
 			_, name := schema.Ref.GetName()
 			if refSchema, ok := s.Components.Schemas[name]; ok {
 				return check(refSchema)
 			}
 		}
-		return false
+
+		return true
 	}
 	return check(schema)
 }

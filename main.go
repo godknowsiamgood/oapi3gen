@@ -116,7 +116,7 @@ func main() {
 		"toColumnParametersPath": toColumnParametersPath,
 		"dict":                   templateMap,
 		"getDefaultStatusCode":   getDefaultStatusCode,
-		"isStructSchema":         s.IsStructSchema,
+		"isNillableSchema":       s.IsNillableSchema,
 	}).ParseFiles("echo.tmpl")
 	if err != nil {
 		log("failed to compile template: %v", err)
