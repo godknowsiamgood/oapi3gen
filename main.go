@@ -18,7 +18,11 @@ import (
 	"text/template"
 )
 
-func PathToMethodName(path string, method string) string {
+func OperationId(path string, method string, operation oapi3.Operation) string {
+	if operation.OperationId != "" {
+		return strcase.ToCamel(operation.OperationId)
+	}
+
 	b := strings.Builder{}
 
 	switch method {
@@ -110,7 +114,7 @@ func main() {
 	}
 
 	t, err := template.New("echo.tmpl").Funcs(template.FuncMap{
-		"pathToMethodName":       PathToMethodName,
+		"operationId":            OperationId,
 		"toCamel":                strcase.ToCamel,
 		"toLowerCamel":           strcase.ToLowerCamel,
 		"toUpper":                strings.ToUpper,

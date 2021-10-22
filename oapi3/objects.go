@@ -269,6 +269,7 @@ func (r Response) IsEmpty() bool {
 }
 
 type Operation struct {
+	OperationId  string              `yaml:"operationId"`
 	Parameters   []Parameter         `yaml:"parameters"`
 	Summary      string              `yaml:"summary"`
 	Description  string              `yaml:"description"`
