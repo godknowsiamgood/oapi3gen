@@ -78,6 +78,10 @@ func getDefaultStatusCode(pattern string) string {
 	}
 }
 
+func isErrorCode(code string) bool {
+	return strings.HasPrefix(code, "4") || strings.HasPrefix(code, "5")
+}
+
 func log(format string, vars ...interface{}) {
 	_, _ = fmt.Fprintf(os.Stderr, format+"\n", vars...)
 }
@@ -125,6 +129,7 @@ func main() {
 		"isOmmitableSchema":      s.IsOmmitableSchema,
 		"isStructSchema":         s.IsStructSchema,
 		"getUnderlyingSchema":    s.GetUnderlyingSchema,
+		"isErrorCode":            isErrorCode,
 	}).ParseFiles("echo.tmpl")
 	if err != nil {
 		log("failed to compile template: %v", err)

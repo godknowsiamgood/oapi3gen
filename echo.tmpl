@@ -122,7 +122,8 @@ type {{ operationId $path $method $operation }}Http{{ toCamel $statusCode }}Resp
 type {{ operationId $path $method $operation }}Response struct {
     Code int
     {{ range $statusCode, $response := $operation.Responses -}}
-    {{- if not $response.IsEmpty -}}
+    {{ $isCommonError := and $hasComponentErrorResponse (isErrorCode $statusCode) }}
+    {{- if and (not $response.IsEmpty) (not $isCommonError) -}}
     Http{{ toCamel $statusCode }}{{- " " -}}
         {{- if $response.IsInlineStructType -}}
             {{- template "pointerForSchema" $response.Content.JSON.Schema -}}
@@ -182,7 +183,8 @@ func BuildRoutes(e *echo.Group, controller Controller
             {{- end }}
         }
         {{ range $statusCode, $response := $operation.Responses -}}
-        {{- if not $response.IsEmpty -}}
+        {{ $isCommonError := and $hasComponentErrorResponse (isErrorCode $statusCode) }}
+        {{- if and (not $response.IsEmpty) (not $isCommonError) -}}
         if response.Http{{ toCamel $statusCode }} != nil {
             if response.Code == 0 {
                 response.Code = {{ getDefaultStatusCode $statusCode }}
