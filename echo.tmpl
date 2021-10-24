@@ -147,10 +147,10 @@ type Controller interface {
         {{ $baseName }}Response
         {{- else -}}
         int
-        {{- end }}, string)
+        {{- end }}{{ if $hasComponentErrorResponse -}}, error{{ end }})
     {{ end -}}
     {{- end }}
-    {{ if $hasComponentErrorResponse }}Error(err string) ErrorResponse{{ end }}
+    {{ if $hasComponentErrorResponse }}Error(err error) ErrorResponse{{ end }}
 }
 
 func sendHttpBadRequestError(c echo.Context, err error) error {
@@ -174,14 +174,15 @@ func BuildRoutes(e *echo.Group, controller Controller
             return sendHttpBadRequestError(c, err)
         }
 
+        {{ if $hasComponentErrorResponse -}}
         response, err := controller.{{ $methodName }}(parameters, c.Request(), c.Response().Writer)
-        if err != "" {
-            {{ if $hasComponentErrorResponse -}}
-			return c.JSON({{ if $operation.IsAllEmptyResponses }}response{{ else }}response.Code{{ end }}, controller.Error(err))
-            {{- else -}}
-            // Define #/components/responses/Error object for handy error handling
-            {{- end }}
+        if err != nil {
+            return c.JSON({{ if $operation.IsAllEmptyResponses }}response{{ else }}response.Code{{ end }}, controller.Error(err))
         }
+        {{ else }}
+        response := controller.{{ $methodName }}(parameters, c.Request(), c.Response().Writer)
+        {{ end }}
+
         {{ range $statusCode, $response := $operation.Responses -}}
         {{ $isCommonError := and $hasComponentErrorResponse (isErrorCode $statusCode) }}
         {{- if and (not $response.IsEmpty) (not $isCommonError) -}}
