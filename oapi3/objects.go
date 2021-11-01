@@ -1,6 +1,7 @@
 package oapi3
 
 import (
+	"fmt"
 	"github.com/Masterminds/semver"
 	"regexp"
 	"sort"
@@ -98,6 +99,14 @@ type Schema struct {
 	Items                *Schema           `yaml:"items"`
 	Properties           map[string]Schema `yaml:"properties"`
 	AdditionalProperties interface{}       `yaml:"additionalProperties"`
+}
+
+func (s Schema) GetDefaultsTags() string {
+	if s.Default == nil {
+		return ""
+	}
+
+	return fmt.Sprintf("default:\"%v\"", *s.Default)
 }
 
 func (s Schema) GetValidationTags(isRequired bool) string {
@@ -420,7 +429,7 @@ func (s Spec) GetAllMiddlewareNames() []string {
 	}
 
 	var middlewares []string
-	for name, _ := range middlewaresMap {
+	for name := range middlewaresMap {
 		middlewares = append(middlewares, name)
 	}
 

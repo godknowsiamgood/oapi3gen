@@ -5,9 +5,13 @@ package {{ .GetPackageName }}
 **/
 
 import (
-	"github.com/labstack/echo/v4"
+	"fmt"
+	"github.com/creasty/defaults"
 	"github.com/go-playground/validator/v10"
+	"github.com/labstack/echo/v4"
 	"net/http"
+	"reflect"
+	"strings"
 )
 
 {{ $hasComponentErrorResponse := .HasComponentErrorResponse }}
@@ -41,6 +45,11 @@ import (
 {{- define "validation" -}}
 {{- $tags := .Schema.GetValidationTags .IsRequired -}}
 {{- if $tags }} validate:"{{ $tags }}"{{ end -}}
+{{- end -}}
+
+{{- define "defaults" -}}
+{{- $tags := .GetDefaultsTags -}}
+{{- if $tags }} {{ $tags }}{{ end -}}
 {{- end -}}
 
 {{ define "properties" }}
@@ -97,9 +106,10 @@ type {{ $name }}Response {{ template "refOrSchema" dict "Ref" $response.Ref "Sch
 {{ range $method, $operation := $operations }}
 type {{ operationId $path $method $operation }}Params struct {
     {{ range $operation.Parameters -}}
-    {{ toCamel .Name }} {{ if .IsRequired }}{{ template "pointerForSchema" .Schema }}{{ end }}{{ template "schemaType" .Schema }}{{- " " -}}
+    {{ toCamel .Name }} {{ if not .IsRequired }}{{ template "pointerForSchema" .Schema }}{{ end }}{{ template "schemaType" .Schema }}{{- " " -}}
     `{{ if eq .In "path" }}param:"{{ .Name }}"{{ end }}{{ if eq .In "query" }}query:"{{ .Name }}"{{ end }}
-    {{- template "validation" dict "Schema" .Schema "IsRequired" .IsRequired }}`
+    {{- template "validation" dict "Schema" .Schema "IsRequired" .IsRequired }}
+    {{- if not .IsRequired }}{{ template "defaults" .Schema }}{{ end }}`
     {{ end }}
 }
 {{ end }}
@@ -196,6 +206,13 @@ func BuildRoutes(e *echo.Group, controller Controller
             return c.JSON(http.StatusBadRequest, controller.Error(err))
             {{- else -}}
             return c.String(http.StatusBadRequest, err.Error())
+            {{- end }}
+        }
+        if err := defaults.Set(&parameters); err != nil {
+            {{ if $hasComponentErrorResponse -}}
+            return c.JSON(http.StatusInternalServerError, controller.Error(err))
+            {{- else -}}
+            return c.String(http.StatusInternalServerError, err.Error())
             {{- end }}
         }
         if err := validateInputParameters(&parameters); err != nil {
