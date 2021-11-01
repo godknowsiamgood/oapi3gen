@@ -15,6 +15,10 @@ func (r Ref) IsSet() bool {
 	return r != ""
 }
 
+func (r Ref) IsGenericError() bool {
+	return r == "#/components/responses/Error"
+}
+
 func (r Ref) GetName() string {
 	_, name := r.GetFullName()
 	return name
@@ -287,7 +291,10 @@ type Operation struct {
 }
 
 func (op Operation) IsAllEmptyResponses() bool {
-	for _, r := range op.Responses {
+	for code, r := range op.Responses {
+		if code == "default" && r.Ref.IsGenericError() {
+			continue
+		}
 		if !r.IsEmpty() {
 			return false
 		}
@@ -333,7 +340,7 @@ func (s Spec) GetPackageName() string {
 	}
 }
 
-func (s Spec) HasComponentErrorResponse() bool {
+func (s Spec) HasGenericErrorResponse() bool {
 	_, has := s.Components.Responses["Error"]
 	return has
 }
