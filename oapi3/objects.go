@@ -87,6 +87,10 @@ func (p Parameter) IsRequired() bool {
 	return p.Required || p.In == "path"
 }
 
+func (p Parameter) HasDefault() bool {
+	return p.Schema.Default != nil
+}
+
 type Schema struct {
 	AllOf []Schema `yaml:"allOf"`
 

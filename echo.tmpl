@@ -106,7 +106,7 @@ type {{ $name }}Response {{ template "refOrSchema" dict "Ref" $response.Ref "Sch
 {{ range $method, $operation := $operations }}
 type {{ operationId $path $method $operation }}Params struct {
     {{ range $operation.Parameters -}}
-    {{ toCamel .Name }} {{ if not .IsRequired }}{{ template "pointerForSchema" .Schema }}{{ end }}{{ template "schemaType" .Schema }}{{- " " -}}
+    {{ toCamel .Name }} {{ if and (not .IsRequired) (not .HasDefault) }}{{ template "pointerForSchema" .Schema }}{{ end }}{{ template "schemaType" .Schema }}{{- " " -}}
     `{{ if eq .In "path" }}param:"{{ .Name }}"{{ end }}{{ if eq .In "query" }}query:"{{ .Name }}"{{ end }}
     {{- template "validation" dict "Schema" .Schema "IsRequired" .IsRequired }}
     {{- if not .IsRequired }}{{ template "defaults" .Schema }}{{ end }}`
