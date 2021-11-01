@@ -6,6 +6,7 @@ package {{ .GetPackageName }}
 
 import (
 	"github.com/labstack/echo/v4"
+	"github.com/go-playground/validator/v10"
 	"net/http"
 )
 
@@ -39,7 +40,7 @@ import (
 
 {{- define "validation" -}}
 {{- $tags := .Schema.GetValidationTags .IsRequired -}}
-{{- if $tags }}validate:"{{ $tags }}"{{ end -}}
+{{- if $tags }} validate:"{{ $tags }}"{{ end -}}
 {{- end -}}
 
 {{ define "properties" }}
@@ -96,8 +97,9 @@ type {{ $name }}Response {{ template "refOrSchema" dict "Ref" $response.Ref "Sch
 {{ range $method, $operation := $operations }}
 type {{ operationId $path $method $operation }}Params struct {
     {{ range $operation.Parameters -}}
-    {{ toCamel .Name }} {{ if not .IsRequired }}{{ template "pointerForSchema" .Schema }}{{ end }}{{ template "schemaType" .Schema }}{{- " " -}}
-    `{{ if eq .In "path" }}param:"{{ .Name }}"{{ end }}{{ if eq .In "query" }}query:"{{ .Name }}"{{ end }}`
+    {{ toCamel .Name }} {{ if .IsRequired }}{{ template "pointerForSchema" .Schema }}{{ end }}{{ template "schemaType" .Schema }}{{- " " -}}
+    `{{ if eq .In "path" }}param:"{{ .Name }}"{{ end }}{{ if eq .In "query" }}query:"{{ .Name }}"{{ end }}
+    {{- template "validation" dict "Schema" .Schema "IsRequired" .IsRequired }}`
     {{ end }}
 }
 {{ end }}
@@ -115,14 +117,13 @@ type {{ operationId $path $method $operation }}Http{{ toCamel $statusCode }}Resp
 {{ end }}
 
 /* Endpoints responses */
-
 {{ range $path, $operations := .Paths }}
 {{ range $method, $operation := $operations }}
 {{ if not $operation.IsAllEmptyResponses }}
 type {{ operationId $path $method $operation }}Response struct {
     Code int
     {{ range $statusCode, $response := $operation.Responses -}}
-    {{ $isCommonError := and $hasComponentErrorResponse (isErrorCode $statusCode) }}
+    {{ $isCommonError := and $hasComponentErrorResponse (eq $statusCode "default") }}
     {{- if and (not $response.IsEmpty) (not $isCommonError) -}}
     Http{{ toCamel $statusCode }}{{- " " -}}
         {{- if $response.IsInlineStructType -}}
@@ -153,10 +154,21 @@ type Controller interface {
     {{ if $hasComponentErrorResponse }}Error(err error) ErrorResponse{{ end }}
 }
 
-func sendHttpBadRequestError(c echo.Context, err error) error {
-	return c.JSON(http.StatusBadRequest, ErrorResponse{
-		Message: err.Error(),
-	})
+var validate *validator.Validate
+
+func validateInputParameters(params interface{}) error {
+    if params == nil {
+        return nil
+    }
+
+    err := validate.Struct(params)
+    if validationErrors, ok := err.(validator.ValidationErrors); ok {
+        for _, e := range validationErrors {
+            return fmt.Errorf("validation error: parameter '%s' (%v), rule: %s \n", e.Field(), e.Value(), e.Tag())
+        }
+    }
+
+    return nil
 }
 
 func BuildRoutes(e *echo.Group, controller Controller
@@ -164,6 +176,15 @@ func BuildRoutes(e *echo.Group, controller Controller
 {{ range .GetAllMiddlewareNames }}, {{ toLowerCamel . }} echo.MiddlewareFunc{{ end }}
 {{- end -}}
 ) {
+    validate = validator.New()
+    validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
+        name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
+        if name == "-" {
+            return ""
+        }
+        return name
+    })
+
 {{ range $path, $operations := .Paths -}}
 {{ range $method, $operation := $operations -}}
     {{ if $operation.Description }}// {{ $operation.Description }} {{ end }}
@@ -171,7 +192,18 @@ func BuildRoutes(e *echo.Group, controller Controller
         {{ $methodName := operationId $path $method $operation -}}
         parameters := {{ $methodName }}Params{}
         if err := c.Bind(&parameters); err != nil {
-            return sendHttpBadRequestError(c, err)
+            {{ if $hasComponentErrorResponse -}}
+            return c.JSON(http.StatusBadRequest, controller.Error(err))
+            {{- else -}}
+            return c.String(http.StatusBadRequest, err.Error())
+            {{- end }}
+        }
+        if err := validateInputParameters(&parameters); err != nil {
+            {{ if $hasComponentErrorResponse -}}
+            return c.JSON(http.StatusBadRequest, controller.Error(err))
+            {{- else -}}
+            return c.String(http.StatusBadRequest, err.Error())
+            {{- end }}
         }
 
         {{ if $hasComponentErrorResponse -}}
@@ -184,7 +216,7 @@ func BuildRoutes(e *echo.Group, controller Controller
         {{ end }}
 
         {{ range $statusCode, $response := $operation.Responses -}}
-        {{ $isCommonError := and $hasComponentErrorResponse (isErrorCode $statusCode) }}
+        {{ $isCommonError := and $hasComponentErrorResponse (eq $statusCode "default") }}
         {{- if and (not $response.IsEmpty) (not $isCommonError) -}}
         if response.Http{{ toCamel $statusCode }} != nil {
             if response.Code == 0 {
