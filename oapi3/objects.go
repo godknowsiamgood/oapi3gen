@@ -60,9 +60,9 @@ func (t Type) GetTypeName() string {
 	case "string":
 		return "string"
 	case "number":
-		return "float32"
+		return "float64"
 	case "integer":
-		return "int32"
+		return "int64"
 	case "boolean":
 		return "bool"
 	}
@@ -164,7 +164,7 @@ func (s Schema) GetSerializedEnums(asStrings bool) string {
 		if asStrings {
 			b.WriteString("[]string{")
 		} else {
-			b.WriteString("[]int32{")
+			b.WriteString("[]int64{")
 		}
 
 		for _, e := range s.Enum {
