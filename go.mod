@@ -1,4 +1,4 @@
-module api
+module godknowsiamgood/oapi3gen
 
 go 1.17
 
