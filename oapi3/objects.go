@@ -285,13 +285,27 @@ func (r Response) IsEmpty() bool {
 	return !r.Ref.IsSet() && !r.Content.JSON.Schema.Ref.IsSet() && r.Content.JSON.Schema.Type == ""
 }
 
+type OperationRequestBody struct {
+	IsRequired bool `yaml:"required"`
+	Content    struct {
+		JSON struct {
+			Schema Schema `yaml:"schema"`
+		} `yaml:"application/json"`
+	} `yaml:"content"`
+}
+
 type Operation struct {
-	OperationId  string              `yaml:"operationId"`
-	Parameters   []Parameter         `yaml:"parameters"`
-	Summary      string              `yaml:"summary"`
-	Description  string              `yaml:"description"`
-	Responses    map[string]Response `yaml:"responses"`
-	XMiddlewares []string            `yaml:"x-middlewares"`
+	OperationId  string               `yaml:"operationId"`
+	Parameters   []Parameter          `yaml:"parameters"`
+	Summary      string               `yaml:"summary"`
+	Description  string               `yaml:"description"`
+	Responses    map[string]Response  `yaml:"responses"`
+	RequestBody  OperationRequestBody `yaml:"requestBody"`
+	XMiddlewares []string             `yaml:"x-middlewares"`
+}
+
+func (op Operation) HasRequestBody() bool {
+	return op.RequestBody.Content.JSON.Schema.IsSet()
 }
 
 func (op Operation) IsAllEmptyResponses() bool {
@@ -393,15 +407,6 @@ func (s Spec) IsOmmitableSchema(schema Schema) bool {
 		}
 		if schema.Type.IsPrimitive() {
 			// will be generated slice type
-			return true
-		}
-		return false
-	})
-}
-
-func (s Spec) IsStructSchema(schema Schema) bool {
-	return s.traverseSchema(schema, func(schema Schema) bool {
-		if schema.Type.IsObject() && schema.AdditionalProperties == nil {
 			return true
 		}
 		return false

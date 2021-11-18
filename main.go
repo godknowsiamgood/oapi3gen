@@ -1,13 +1,13 @@
 package main
 
 import (
-	"api/oapi3"
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/goccy/go-yaml"
+	"github.com/godknowsiamgood/oapi3gen/oapi3"
 	"github.com/iancoleman/strcase"
 	"go/format"
 	"io/ioutil"
@@ -114,17 +114,17 @@ func main() {
 	}
 
 	t, err := template.New("echo.tmpl").Funcs(template.FuncMap{
-		"operationId":            OperationId,
-		"toCamel":                strcase.ToCamel,
-		"toLowerCamel":           strcase.ToLowerCamel,
-		"toUpper":                strings.ToUpper,
-		"toColumnParametersPath": toColumnParametersPath,
-		"dict":                   templateMap,
-		"getDefaultStatusCode":   getDefaultStatusCode,
-		"isNillableSchema":       s.IsNillableSchema,
-		"isOmmitableSchema":      s.IsOmmitableSchema,
-		"isStructSchema":         s.IsStructSchema,
-		"getUnderlyingSchema":    s.GetUnderlyingSchema,
+		"operationId":             OperationId,
+		"toCamel":                 strcase.ToCamel,
+		"toLowerCamel":            strcase.ToLowerCamel,
+		"toUpper":                 strings.ToUpper,
+		"toColumnParametersPath":  toColumnParametersPath,
+		"dict":                    templateMap,
+		"getDefaultStatusCode":    getDefaultStatusCode,
+		"isNillableSchema":        s.IsNillableSchema,
+		"isOmmitableSchema":       s.IsOmmitableSchema,
+		"getUnderlyingSchema":     s.GetUnderlyingSchema,
+		"hasGenericErrorResponse": s.HasGenericErrorResponse,
 	}).ParseFiles("echo.tmpl")
 	if err != nil {
 		log("failed to compile template: %v", err)
