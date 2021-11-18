@@ -106,7 +106,7 @@ type {{ $name }}Schema {{ template "schemaType" $schema }}
 
 /* Components responses */
 {{ range $name, $response := .Components.Responses }}
-type {{ $name }}Response {{ template "refOrSchema" dict "Ref" $response.Ref "Schema" $response.Content.JSON.Schema }}
+type {{ $name }}Response {{ template "refOrSchema" dict "Ref" $response.Ref "Schema" $response.Content.GetJSONSchema }}
 {{ end }}
 
 /* Endpoints parameters */
@@ -126,8 +126,8 @@ type {{ operationId $path $method $operation }}Params struct {
 /* Endpoints requests bodies */
 {{ range $path, $operations := .Paths }}
 {{ range $method, $operation := $operations }}
-{{ if $operation.HasRequestBody }}
-type {{ operationId $path $method $operation }}Body {{ template "schemaType" $operation.RequestBody.Content.JSON.Schema }}
+{{ if $operation.HasRequestJSONBody }}
+type {{ operationId $path $method $operation }}Body {{ template "schemaType" $operation.RequestBody.Content.GetJSONSchema }}
 {{ end }}
 {{ end }}
 {{ end }}
@@ -137,7 +137,7 @@ type {{ operationId $path $method $operation }}Body {{ template "schemaType" $op
 {{ range $method, $operation := $operations }}
 {{ range $statusCode, $response := $operation.Responses -}}
 {{ if and ($response.IsInlineStructType) (not $response.IsEmpty) -}}
-type {{ operationId $path $method $operation }}Http{{ toCamel $statusCode }}Response {{ template "schemaType" $response.Content.JSON.Schema }}
+type {{ operationId $path $method $operation }}Http{{ toCamel $statusCode }}Response {{ template "schemaType" $response.Content.GetJSONSchema }}
 {{- end }}
 {{ end }}
 {{ end }}
@@ -154,10 +154,10 @@ type {{ operationId $path $method $operation }}Response struct {
     {{- if and (not $response.IsEmpty) (not $isCommonError) -}}
     Http{{ toCamel $statusCode }}{{- " " -}}
         {{- if $response.IsInlineStructType -}}
-            {{- template "pointerForSchema" $response.Content.JSON.Schema -}}
+            {{- template "pointerForSchema" $response.Content.GetJSONSchema -}}
             {{- operationId $path $method $operation }}Http{{ toCamel $statusCode }}Response
         {{- else -}}
-            {{- template "refOrSchema" dict "Ref" $response.Ref "Schema" $response.Content.JSON.Schema "IsOptional" true -}}
+            {{- template "refOrSchema" dict "Ref" $response.Ref "Schema" $response.Content.GetJSONSchema "IsOptional" true -}}
         {{- end -}}
     {{- end }}
     {{ end }}
@@ -170,7 +170,7 @@ type Controller interface {
     {{ range $path, $operations := .Paths -}}
     {{- range $method, $operation := $operations -}}
     {{- $baseName := operationId $path $method $operation -}}
-    {{ $baseName }}(params {{ $baseName }}Params {{ if $operation.HasRequestBody }}, body {{ $baseName }}Body{{ end }}, req *http.Request, res http.ResponseWriter) (
+    {{ $baseName }}(params {{ $baseName }}Params {{ if $operation.HasRequestJSONBody }}, body {{ $baseName }}Body{{ end }}, req *http.Request, res http.ResponseWriter) (
         {{- if not $operation.IsAllEmptyResponses -}}
         {{ $baseName }}Response
         {{- else -}}
@@ -218,13 +218,13 @@ func BuildRoutes(e *echo.Group, controller Controller
     e.{{ toUpper $method }}("{{ toColumnParametersPath $path }}", func(c echo.Context) error {
         {{- $methodName := operationId $path $method $operation -}}
 
-        {{ if $operation.HasRequestBody -}}
+        {{ if $operation.HasRequestJSONBody -}}
         body := {{ $methodName }}Body{}
         bodyData, err := ioutil.ReadAll(c.Request().Body)
         if err != nil {
             {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
         }
-        if err = json.Unmarshal(bodyData, &body); err != nil {
+        if err := json.Unmarshal(bodyData, &body); err != nil {
             {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
         }
         {{- end }}
@@ -233,15 +233,15 @@ func BuildRoutes(e *echo.Group, controller Controller
         if err := c.Bind(&parameters); err != nil {
             {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
         }
-        if err = defaults.Set(&parameters); err != nil {
+        if err := defaults.Set(&parameters); err != nil {
             {{ template "controllerErrorResponse" "http.StatusInternalServerError" }}
         }
-        if err = validateInputParameters(&parameters); err != nil {
+        if err := validateInputParameters(&parameters); err != nil {
             {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
         }
 
         {{ if hasGenericErrorResponse -}}
-        response, err := controller.{{ $methodName }}(parameters {{ if $operation.HasRequestBody }},body{{ end }}, c.Request(), c.Response().Writer)
+        response, err := controller.{{ $methodName }}(parameters {{ if $operation.HasRequestJSONBody }},body{{ end }}, c.Request(), c.Response().Writer)
         if err != nil {
             return c.JSON({{ if $operation.IsAllEmptyResponses }}response{{ else }}response.Code{{ end }}, controller.Error(err))
         }

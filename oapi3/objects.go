@@ -260,21 +260,19 @@ func (s Schema) GetGoType() string {
 }
 
 type Response struct {
-	Ref         Ref    `yaml:"$ref"`
-	Description string `yaml:"description"`
-	Content     struct {
-		JSON struct {
-			Schema Schema `yaml:"schema"`
-		} `yaml:"application/json"`
-	} `yaml:"content"`
+	Ref         Ref     `yaml:"$ref"`
+	Description string  `yaml:"description"`
+	Content     Content `yaml:"content"`
 }
 
 func (r Response) IsInlineStructType() bool {
-	if r.Ref.IsSet() || r.Content.JSON.Schema.Ref.IsSet() {
+	contentJSONSchema := r.Content.GetJSONSchema()
+
+	if r.Ref.IsSet() || contentJSONSchema.Ref.IsSet() {
 		return false
 	}
 
-	if r.Content.JSON.Schema.Type.IsObject() && r.Content.JSON.Schema.AdditionalProperties == nil {
+	if contentJSONSchema.Type.IsObject() && contentJSONSchema.AdditionalProperties == nil {
 		return true
 	}
 
@@ -282,16 +280,25 @@ func (r Response) IsInlineStructType() bool {
 }
 
 func (r Response) IsEmpty() bool {
-	return !r.Ref.IsSet() && !r.Content.JSON.Schema.Ref.IsSet() && r.Content.JSON.Schema.Type == ""
+	return !r.Ref.IsSet() && !r.Content.GetJSONSchema().Ref.IsSet() && r.Content.GetJSONSchema().Type == ""
+}
+
+type Content map[string]struct {
+	Schema Schema `yaml:"schema"`
+}
+
+func (c Content) GetJSONSchema() Schema {
+	for t, s := range c {
+		if t == "application/json" {
+			return s.Schema
+		}
+	}
+	return Schema{}
 }
 
 type OperationRequestBody struct {
-	IsRequired bool `yaml:"required"`
-	Content    struct {
-		JSON struct {
-			Schema Schema `yaml:"schema"`
-		} `yaml:"application/json"`
-	} `yaml:"content"`
+	IsRequired bool    `yaml:"required"`
+	Content    Content `yaml:"content"`
 }
 
 type Operation struct {
@@ -304,8 +311,11 @@ type Operation struct {
 	XMiddlewares []string             `yaml:"x-middlewares"`
 }
 
-func (op Operation) HasRequestBody() bool {
-	return op.RequestBody.Content.JSON.Schema.IsSet()
+func (op Operation) HasRequestJSONBody() bool {
+	if op.RequestBody.Content == nil {
+		return false
+	}
+	return op.RequestBody.Content.GetJSONSchema().IsSet()
 }
 
 func (op Operation) IsAllEmptyResponses() bool {
@@ -326,7 +336,7 @@ func (op Operation) GetResponses() map[string]Response {
 		if _, err := strconv.Atoi(status); err != nil {
 			continue
 		}
-		if !response.Ref.IsSet() && !response.Content.JSON.Schema.IsSet() {
+		if !response.Ref.IsSet() && !response.Content.GetJSONSchema().IsSet() {
 			continue
 		}
 		responses[status] = response
@@ -427,7 +437,7 @@ func (s Spec) GetUnderlyingSchema(ref Ref) Schema {
 		if response.Ref.IsSet() {
 			return s.GetUnderlyingSchema(response.Ref)
 		} else {
-			return response.Content.JSON.Schema
+			return response.Content.GetJSONSchema()
 		}
 	}
 
