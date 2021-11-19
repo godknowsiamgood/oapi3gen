@@ -225,6 +225,7 @@ func BuildRoutes(e *echo.Group, controller Controller
         }
         {{- end }}
         parameters := {{ $methodName }}Params{}
+        {{ if $operation.HasRequestBody }}
         if err := (&echo.DefaultBinder{}).BindPathParams(c, &parameters); err != nil {
             {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
         }
@@ -234,6 +235,11 @@ func BuildRoutes(e *echo.Group, controller Controller
         if err := (&echo.DefaultBinder{}).BindHeaders(c, &parameters); err != nil {
             {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
         }
+        {{ else }}
+        if err := c.Bind(&parameters); err != nil {
+            {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
+        }
+        {{ end }}
         if err := defaults.Set(&parameters); err != nil {
             {{ template "controllerErrorResponse" "http.StatusInternalServerError" }}
         }

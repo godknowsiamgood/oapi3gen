@@ -327,6 +327,10 @@ func (op Operation) HasRequestBodyBindableParameters() bool {
 	return op.RequestBody.Content.GetBindableParametersSchema().IsSet()
 }
 
+func (op Operation) HasRequestBody() bool {
+	return op.RequestBody.Content != nil
+}
+
 func (op Operation) HasRequestParametrizedBody() bool {
 	if op.RequestBody.Content == nil {
 		return false
