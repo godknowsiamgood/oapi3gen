@@ -266,7 +266,7 @@ type Response struct {
 }
 
 func (r Response) IsInlineStructType() bool {
-	contentJSONSchema := r.Content.GetJSONSchema()
+	contentJSONSchema := r.Content.GetBindableParametersSchema()
 
 	if r.Ref.IsSet() || contentJSONSchema.Ref.IsSet() {
 		return false
@@ -280,20 +280,29 @@ func (r Response) IsInlineStructType() bool {
 }
 
 func (r Response) IsEmpty() bool {
-	return !r.Ref.IsSet() && !r.Content.GetJSONSchema().Ref.IsSet() && r.Content.GetJSONSchema().Type == ""
+	return !r.Ref.IsSet() && !r.Content.GetBindableParametersSchema().Ref.IsSet() && r.Content.GetBindableParametersSchema().Type == ""
 }
 
 type Content map[string]struct {
 	Schema Schema `yaml:"schema"`
 }
 
-func (c Content) GetJSONSchema() Schema {
+func (c Content) GetBindableParametersSchema() Schema {
 	for t, s := range c {
-		if t == "application/json" {
+		if t == "application/json" || t == "multipart/form-data" {
 			return s.Schema
 		}
 	}
 	return Schema{}
+}
+
+func (c Content) IsParametrizedContent() bool {
+	for t := range c {
+		if t == "multipart/form-data" || t == "application/json" {
+			return true
+		}
+	}
+	return false
 }
 
 type OperationRequestBody struct {
@@ -311,11 +320,18 @@ type Operation struct {
 	XMiddlewares []string             `yaml:"x-middlewares"`
 }
 
-func (op Operation) HasRequestJSONBody() bool {
+func (op Operation) HasRequestBodyBindableParameters() bool {
 	if op.RequestBody.Content == nil {
 		return false
 	}
-	return op.RequestBody.Content.GetJSONSchema().IsSet()
+	return op.RequestBody.Content.GetBindableParametersSchema().IsSet()
+}
+
+func (op Operation) HasRequestParametrizedBody() bool {
+	if op.RequestBody.Content == nil {
+		return false
+	}
+	return op.RequestBody.Content.IsParametrizedContent()
 }
 
 func (op Operation) IsAllEmptyResponses() bool {
@@ -336,7 +352,7 @@ func (op Operation) GetResponses() map[string]Response {
 		if _, err := strconv.Atoi(status); err != nil {
 			continue
 		}
-		if !response.Ref.IsSet() && !response.Content.GetJSONSchema().IsSet() {
+		if !response.Ref.IsSet() && !response.Content.GetBindableParametersSchema().IsSet() {
 			continue
 		}
 		responses[status] = response
@@ -437,7 +453,7 @@ func (s Spec) GetUnderlyingSchema(ref Ref) Schema {
 		if response.Ref.IsSet() {
 			return s.GetUnderlyingSchema(response.Ref)
 		} else {
-			return response.Content.GetJSONSchema()
+			return response.Content.GetBindableParametersSchema()
 		}
 	}
 
