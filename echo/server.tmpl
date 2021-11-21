@@ -1,0 +1,119 @@
+
+{{- define "controllerErrorResponse" -}}
+{{ if hasGenericErrorResponse -}}
+c.JSON({{.}}, controller.Error(err))
+{{- else -}}
+c.String({{.}}, err.Error())
+{{- end }}
+{{- end -}}
+
+{{ define "serverBoilerplate" }}
+
+var validate *validator.Validate
+
+func validateInputParameters(params interface{}) error {
+    if params == nil {
+        return nil
+    }
+
+    if validate == nil {
+        validate = validator.New()
+        validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
+            name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
+            if name == "-" {
+                return ""
+            }
+            return name
+        })
+    }
+
+    err := validate.Struct(params)
+    if validationErrors, ok := err.(validator.ValidationErrors); ok {
+        for _, e := range validationErrors {
+            return fmt.Errorf("validation error: parameter '%s' (%v), rule: %s \n", e.Field(), e.Value(), e.Tag())
+        }
+    }
+
+    return nil
+}
+
+var defaultBinder = &echo.DefaultBinder{}
+
+func initParameters(c echo.Context, parameters interface{}, body interface{}) error {
+    if body != nil {
+        if err := defaultBinder.BindBody(c, body); err != nil {
+            return {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
+        }
+    }
+
+    if err := defaultBinder.BindPathParams(c, parameters); err != nil {
+        return {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
+    }
+    if err := defaultBinder.BindQueryParams(c, parameters); err != nil {
+        return {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
+    }
+    if err := defaultBinder.BindHeaders(c, parameters); err != nil {
+        return {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
+    }
+
+    if err := defaults.Set(parameters); err != nil {
+        return {{ template "controllerErrorResponse" "http.StatusInternalServerError" }}
+    }
+    if err := validateInputParameters(parameters); err != nil {
+        return {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
+    }
+
+    return nil
+}
+
+func BuildRoutes(e *echo.Group, controller Controller
+{{- if .GetAllMiddlewareNames -}}
+{{ range .GetAllMiddlewareNames }}, {{ toLowerCamel . }} echo.MiddlewareFunc{{ end }}
+{{- end -}}
+) {
+{{ range $path, $operations := .Paths -}}
+{{ range $method, $operation := $operations -}}
+    {{ if $operation.Description }}// {{ $operation.Description }} {{ end }}
+    e.{{ toUpper $method }}("{{ toColumnParametersPath $path }}", func(c echo.Context) error {
+        {{- $methodName := operationId $path $method $operation -}}
+
+        {{ if $operation.HasRequestBodyBindableParameters -}}
+        body := &{{ $methodName }}Body{}
+        {{- end }}
+        parameters := &{{ $methodName }}Params{}
+        if err := initParameters(c, parameters, {{ if $operation.HasRequestBodyBindableParameters -}}body{{ else }}nil{{ end }}); err != nil {
+            return err
+        }
+
+        {{ if hasGenericErrorResponse -}}
+        response, err := controller.{{ $methodName }}(parameters, {{ if $operation.HasRequestBodyBindableParameters }}body ,{{ end }} c.Request(), c.Response().Writer)
+        if err != nil {
+            return c.JSON({{ if $operation.IsAllEmptyResponses }}response{{ else }}response.Code{{ end }}, controller.Error(err))
+        }
+        {{ else }}
+        response := controller.{{ $methodName }}(parameters, {{ if $operation.HasRequestBodyBindableParameters -}}body, {{ end }} c.Request(), c.Response().Writer)
+        {{ end }}
+
+        {{ range $statusCode, $response := $operation.Responses -}}
+        {{ $isCommonError := and hasGenericErrorResponse (eq $statusCode "default") }}
+        {{- if and (not $response.IsEmpty) (not $isCommonError) -}}
+        if response.Http{{ toCamel $statusCode }} != nil {
+            if response.Code == 0 {
+                response.Code = {{ getDefaultStatusCode $statusCode }}
+            }
+            return c.JSON(response.Code, response.Http{{ toCamel $statusCode }})
+        }
+        {{- end }}
+        {{ end }}
+
+        {{ if $operation.IsAllEmptyResponses -}}
+        return c.NoContent(response)
+        {{- else -}}
+        return c.NoContent(response.Code)
+        {{- end }}
+    }{{ range $operation.XMiddlewares }}, {{ . }}{{ end }})
+{{ end }}
+{{ end }}
+}
+
+{{ end }}

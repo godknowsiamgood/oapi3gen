@@ -14,6 +14,6 @@ RUN CGO_ENABLED=0 go build -o oapi3gen .
 FROM alpine
 
 COPY --from=go_build /build/oapi3gen /oapi3gen
-COPY ./echo.tmpl /echo.tmpl
+COPY base.tmpl /echo.tmpl
 
 ENTRYPOINT ["/oapi3gen"]

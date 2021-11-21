@@ -1,8 +1,9 @@
-package oapi3
+package spec
 
 import (
 	"fmt"
 	"github.com/Masterminds/semver"
+	"github.com/iancoleman/strcase"
 	"regexp"
 	"sort"
 	"strconv"
@@ -97,6 +98,7 @@ type Schema struct {
 	Ref                  Ref               `yaml:"$ref"`
 	Description          string            `yaml:"description"`
 	Type                 Type              `yaml:"type"`
+	Format               string            `yaml:"format"`
 	Minimum              *int              `yaml:"minimum"`
 	Maximum              *int              `yaml:"maximum"`
 	MinimumLength        *int              `yaml:"minLength"`
@@ -253,7 +255,18 @@ func (s Schema) GetGoType() string {
 			b.WriteString(s.Items.Type.GetTypeName())
 		}
 	} else {
-		b.WriteString(s.Type.GetTypeName())
+		switch s.Format {
+		case "int32":
+			b.WriteString("int32")
+		case "int64":
+			b.WriteString("int64")
+		case "float":
+			b.WriteString("float32")
+		case "double":
+			b.WriteString("float64")
+		default:
+			b.WriteString(s.Type.GetTypeName())
+		}
 	}
 
 	return b.String()
@@ -388,11 +401,6 @@ func (s Spec) GetPackageName() string {
 	}
 }
 
-func (s Spec) HasGenericErrorResponse() bool {
-	_, has := s.Components.Responses["Error"]
-	return has
-}
-
 func (s Spec) traverseSchema(schema Schema, cb func(Schema) bool) bool {
 	var traverse func(schema Schema) bool
 	traverse = func(schema Schema) bool {
@@ -435,10 +443,6 @@ func (s Spec) IsOmmitableSchema(schema Schema) bool {
 			// will be generated slice type
 			return true
 		}
-		if schema.Type.IsPrimitive() {
-			// will be generated slice type
-			return true
-		}
 		return false
 	})
 }
@@ -464,6 +468,11 @@ func (s Spec) GetUnderlyingSchema(ref Ref) Schema {
 	return Schema{}
 }
 
+func (s Spec) HasGenericErrorResponse() bool {
+	_, has := s.Components.Responses["Error"]
+	return has
+}
+
 func (s Spec) GetAllMiddlewareNames() []string {
 	middlewaresMap := make(map[string]bool)
 	for _, operations := range s.Paths {
@@ -482,4 +491,35 @@ func (s Spec) GetAllMiddlewareNames() []string {
 	sort.Strings(middlewares)
 
 	return middlewares
+}
+
+func OperationId(path string, method string, operation Operation) string {
+	if operation.OperationId != "" {
+		return strcase.ToCamel(operation.OperationId)
+	}
+
+	b := strings.Builder{}
+
+	switch method {
+	case "get":
+		b.WriteString("Get")
+	case "post":
+		b.WriteString("Post")
+	case "put":
+		b.WriteString("Put")
+	case "delete":
+		b.WriteString("Delete")
+	case "update":
+		b.WriteString("Update")
+	}
+
+	r, _ := regexp.Compile("(\\w+)")
+
+	path = strings.ReplaceAll(path, "_", " ")
+	parts := r.FindAllString(path, 10)
+	for _, p := range parts {
+		b.WriteString(strings.Title(p))
+	}
+
+	return b.String()
 }

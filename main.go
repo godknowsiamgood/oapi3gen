@@ -1,57 +1,13 @@
 package main
 
 import (
-	"bytes"
-	"context"
 	"errors"
+	"flag"
 	"fmt"
-	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/goccy/go-yaml"
-	"github.com/godknowsiamgood/oapi3gen/oapi3"
-	"github.com/iancoleman/strcase"
-	"go/format"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
-	"text/template"
 )
-
-func OperationId(path string, method string, operation oapi3.Operation) string {
-	if operation.OperationId != "" {
-		return strcase.ToCamel(operation.OperationId)
-	}
-
-	b := strings.Builder{}
-
-	switch method {
-	case "get":
-		b.WriteString("Get")
-	case "post":
-		b.WriteString("Post")
-	case "delete":
-		b.WriteString("Delete")
-	case "update":
-		b.WriteString("Update")
-	}
-
-	r, _ := regexp.Compile("(\\w+)")
-
-	path = strings.ReplaceAll(path, "_", " ")
-	parts := r.FindAllString(path, 10)
-	for _, p := range parts {
-		b.WriteString(strings.Title(p))
-	}
-
-	return b.String()
-}
-
-func toColumnParametersPath(path string) string {
-	path = strings.ReplaceAll(path, "{", ":")
-	path = strings.ReplaceAll(path, "}", "")
-	return path
-}
 
 func templateMap(values ...interface{}) (map[string]interface{}, error) {
 	if len(values)%2 != 0 {
@@ -68,98 +24,46 @@ func templateMap(values ...interface{}) (map[string]interface{}, error) {
 	return dict, nil
 }
 
-func getDefaultStatusCode(pattern string) string {
-	if pattern == "default" {
-		return "200"
-	} else if strings.Contains(pattern, "X") {
-		return strings.ReplaceAll(pattern, "X", "0")
-	} else {
-		return pattern
-	}
-}
-
 func log(format string, vars ...interface{}) {
 	_, _ = fmt.Fprintf(os.Stderr, format+"\n", vars...)
 }
 
 func main() {
 	if len(os.Args) == 1 {
-		log("yml spec file should be provided")
+		log("yml s file should be provided")
 		return
 	}
-	specFileName := os.Args[1]
 
-	var genFileOutput string
-	if len(os.Args) == 3 {
-		genFileOutput = os.Args[2]
-	}
+	serverFlag := flag.String("server", "", "server implementation")
+	outputFlag := flag.String("output", "", "output file")
 
-	doc, err := openapi3.NewLoader().LoadFromFile(specFileName)
+	flag.Parse()
+
+	specFileName := os.Args[len(os.Args)-1]
+
+	specFileData, err := ioutil.ReadFile(specFileName)
 	if err != nil {
-		log("schema parsing failed: %v", err)
+		log("fiel not found: %v", err)
 		return
 	}
 
-	if err := doc.Validate(context.TODO()); err != nil {
-		log("schema validation failed: %v", err)
-		return
-	}
-
-	s := oapi3.Spec{}
-
-	content, _ := ioutil.ReadFile(specFileName)
-	if err := yaml.Unmarshal(content, &s); err != nil {
-		log("schema parsing failed: %v", err)
-		return
-	}
-
-	t, err := template.New("echo.tmpl").Funcs(template.FuncMap{
-		"operationId":             OperationId,
-		"toCamel":                 strcase.ToCamel,
-		"toLowerCamel":            strcase.ToLowerCamel,
-		"toUpper":                 strings.ToUpper,
-		"toColumnParametersPath":  toColumnParametersPath,
-		"dict":                    templateMap,
-		"getDefaultStatusCode":    getDefaultStatusCode,
-		"isNillableSchema":        s.IsNillableSchema,
-		"isOmmitableSchema":       s.IsOmmitableSchema,
-		"getUnderlyingSchema":     s.GetUnderlyingSchema,
-		"hasGenericErrorResponse": s.HasGenericErrorResponse,
-	}).ParseFiles("echo.tmpl")
+	out, err := generate(specFileData, *serverFlag)
 	if err != nil {
-		log("failed to compile template: %v", err)
+		_, _ = fmt.Fprintf(os.Stderr, "%v", err)
 		return
 	}
 
-	sb := new(bytes.Buffer)
-
-	if err := t.Execute(sb, s); err != nil {
-		log("code generation failed: %v", err)
-		return
-	}
-
-	var formattedSource []byte
-	if os.Getenv("debug") == "" {
-		formattedSource, err = format.Source(sb.Bytes())
-		if err != nil {
-			log("code formatting failed: %v", err)
-			return
-		}
-	} else {
-		formattedSource = sb.Bytes()
-	}
-
-	if genFileOutput != "" {
-		genDirOutput := filepath.Dir(genFileOutput)
+	if *outputFlag != "" {
+		genDirOutput := filepath.Dir(*outputFlag)
 		if err := os.MkdirAll(genDirOutput, 0750); err != nil {
 			log("saving generated code failed: %v", err)
 		}
-		if err := ioutil.WriteFile(genFileOutput, formattedSource, 0755); err != nil {
+		if err := ioutil.WriteFile(*outputFlag, out, 0755); err != nil {
 			log("saving generated code failed: %v", err)
 			return
 		}
 	} else {
-		if _, err := fmt.Fprintf(os.Stdout, "%s", formattedSource); err != nil {
+		if _, err := fmt.Fprintf(os.Stdout, "%s", out); err != nil {
 			log("%v", err)
 		}
 	}
