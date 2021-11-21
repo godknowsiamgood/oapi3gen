@@ -78,7 +78,7 @@ type Controller interface {
 ```
 
 # Server boilerplate
-If you want, library can generate echo server specific code. It will include only parameters validation, defaults and routes.
+If needed library can generate server specific code. At this moment only echo framework supported.  It will include only parameters validation, defaults and routes.
 
 `oapi3gen -server echo spec.yaml`
 
