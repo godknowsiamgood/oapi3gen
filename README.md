@@ -10,8 +10,7 @@ Simple OpenAPI 3 code generator with zero or minimum server boilerplate
 
 # Usage
 ```
-go get -d github.com/godknowsiamgood/oapi3gen
-go install github.com/godknowsiamgood/oapi3gen
+go install github.com/godknowsiamgood/oapi3gen@latest
 oapi3gen [-server echo] [-output ./out.go] spec.yaml
 ```
 
