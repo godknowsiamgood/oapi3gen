@@ -18,7 +18,7 @@ import (
 
 func generate(yamlContent []byte, serverName string) ([]byte, error) {
 	if isVerbose {
-		log("Validating spec for yaml file ($v bytes)...", len(yamlContent))
+		log("Validating spec for yaml file (%v bytes)...", len(yamlContent))
 	}
 
 	doc, err := openapi3.NewLoader().LoadFromData(yamlContent)
@@ -41,7 +41,7 @@ func generate(yamlContent []byte, serverName string) ([]byte, error) {
 	}
 
 	if isVerbose {
-		log("Parsed spec '%v'", s.Info.Title)
+		log("Parsed spec %s", s.Info.Title)
 	}
 
 	var server Server
@@ -71,6 +71,11 @@ func generate(yamlContent []byte, serverName string) ([]byte, error) {
 
 	baseTemplateContent = strings.Replace(baseTemplateContent, "%server%", serverTmplReplace, 1)
 	baseTemplateContent = strings.Replace(baseTemplateContent, "%boilerplate%", serverBoilerplateReplace, 1)
+
+	if isVerbose {
+		log("===================")
+		log("%s", baseTemplateContent)
+	}
 
 	isOmittingFields := false
 
@@ -113,6 +118,11 @@ func generate(yamlContent []byte, serverName string) ([]byte, error) {
 
 	if err := t.Execute(sb, s); err != nil {
 		return nil, fmt.Errorf("code generation failed: %v", err)
+	}
+
+	if isVerbose {
+		log("===================")
+		log("%s", sb.String())
 	}
 
 	var formattedSource []byte
