@@ -82,6 +82,9 @@ import (
 {{ end -}}
 {{ end -}}
 
+
+{{ setOmittingFields true }}
+
 /* Components schemas */
 {{ range $name, $schema := .Components.Schemas }}
 type {{ $name }}Schema {{ template "schemaType" $schema }}
