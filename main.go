@@ -66,7 +66,7 @@ func main() {
 	}
 
 	if isVerbose {
-		log("Output code...")
+		log("Output code (%v bytes)...", len(out))
 	}
 
 	if *outputFlag != "" {
