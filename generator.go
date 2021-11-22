@@ -72,11 +72,6 @@ func generate(yamlContent []byte, serverName string) ([]byte, error) {
 	baseTemplateContent = strings.Replace(baseTemplateContent, "%server%", serverTmplReplace, 1)
 	baseTemplateContent = strings.Replace(baseTemplateContent, "%boilerplate%", serverBoilerplateReplace, 1)
 
-	if isVerbose {
-		log("===================")
-		log("%s", baseTemplateContent)
-	}
-
 	isOmittingFields := false
 
 	templateFunctions := template.FuncMap{
@@ -118,11 +113,6 @@ func generate(yamlContent []byte, serverName string) ([]byte, error) {
 
 	if err := t.Execute(sb, s); err != nil {
 		return nil, fmt.Errorf("code generation failed: %v", err)
-	}
-
-	if isVerbose {
-		log("===================")
-		log("%s", sb.String())
 	}
 
 	var formattedSource []byte
