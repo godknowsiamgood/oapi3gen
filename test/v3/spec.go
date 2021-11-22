@@ -5,83 +5,77 @@ package v1
 **/
 
 import (
-	"fmt"
-	"github.com/creasty/defaults"
-	"github.com/go-playground/validator/v10"
-	"github.com/labstack/echo/v4"
 	"net/http"
-	"reflect"
-	"strings"
 )
 
 /* Components schemas */
 
 type CoordinatesSchema struct {
-	Latitude  *float64 `json:"latitude"`
-	Longitude *float64 `json:"longitude"`
+	Latitude  float64 `json:"latitude,omitempty"`
+	Longitude float64 `json:"longitude,omitempty"`
 }
 
 type ImageSchema struct {
-	AuthorName *string  `json:"author_name"`
-	AuthorUrl  *string  `json:"author_url"`
-	ImageUrl   *string  `json:"image_url"`
-	Ratio      *float64 `json:"ratio"`
+	AuthorName string  `json:"author_name,omitempty"`
+	AuthorUrl  string  `json:"author_url,omitempty"`
+	ImageUrl   string  `json:"image_url,omitempty"`
+	Ratio      float64 `json:"ratio,omitempty"`
 }
 
 type PetAdviceSchema struct {
-	Author   *PetAdviceAuthorSchema `json:"author"`
+	Author   *PetAdviceAuthorSchema `json:"author,omitempty"`
 	HtmlText string                 `json:"html_text"`
 	Text     string                 `json:"text"`
 }
 
 type PetAdviceAuthorSchema struct {
-	AvatarUrl    *string `json:"avatar_url"`
-	InstagramUrl *string `json:"instagram_url"`
-	Name         *string `json:"name"`
-	Role         *string `json:"role"`
+	AvatarUrl    string `json:"avatar_url,omitempty"`
+	InstagramUrl string `json:"instagram_url,omitempty"`
+	Name         string `json:"name,omitempty"`
+	Role         string `json:"role,omitempty"`
 }
 
 type PetAudioSchema struct {
-	Duration      *int64  `json:"duration"`
-	Transcription *string `json:"transcription"`
-	Url           *string `json:"url"`
+	Duration      int64  `json:"duration,omitempty"`
+	Transcription string `json:"transcription,omitempty"`
+	Url           string `json:"url,omitempty"`
 }
 
 type PetBulletSchema struct {
 	Color  string        `json:"color"`
 	Emoji  string        `json:"emoji"`
-	Images []ImageSchema `json:"images"`
+	Images []ImageSchema `json:"images,omitempty"`
 	Text   string        `json:"text"`
 	Title  string        `json:"title"`
 }
 
 type PetButtonSchema struct {
-	Coordinates *CoordinatesSchema `json:"coordinates"`
-	Title       *string            `json:"title"`
-	Type        *string            `json:"type"`
-	Url         *string            `json:"url"`
+	Coordinates *CoordinatesSchema `json:"coordinates,omitempty"`
+	Title       string             `json:"title,omitempty"`
+	Type        string             `json:"type,omitempty"`
+	Url         string             `json:"url,omitempty"`
 }
 
 type WalkPetSchema struct {
-	Address          *string             `json:"address"`
-	Coordinates      *CoordinatesSchema  `json:"coordinates"`
-	Description      *string             `json:"description"`
-	DescriptionShort *string             `json:"description_short"`
-	Id               *int64              `json:"id"`
-	Image            *ImageSchema        `json:"image"`
+	Address          string              `json:"address,omitempty"`
+	Coordinates      *CoordinatesSchema  `json:"coordinates,omitempty"`
+	Description      string              `json:"description,omitempty"`
+	DescriptionShort string              `json:"description_short,omitempty"`
+	Id               int64               `json:"id,omitempty"`
+	Image            *ImageSchema        `json:"image,omitempty"`
 	IsKey            bool                `json:"is_key"`
 	Path             []CoordinatesSchema `json:"path"`
-	Title            *string             `json:"title"`
+	Title            string              `json:"title,omitempty"`
 	Type             string              `json:"type"`
 }
 
 type WalkPreviewSchema struct {
-	Description *string      `json:"description"`
-	Iata        *string      `json:"iata"`
-	Id          *int64       `json:"id"`
-	Image       *ImageSchema `json:"image"`
-	IsSoon      *bool        `json:"is_soon"`
-	Title       *string      `json:"title"`
+	Description string       `json:"description,omitempty"`
+	Iata        string       `json:"iata,omitempty"`
+	Id          int64        `json:"id,omitempty"`
+	Image       *ImageSchema `json:"image,omitempty"`
+	IsSoon      bool         `json:"is_soon,omitempty"`
+	Title       string       `json:"title,omitempty"`
 }
 
 /* Components responses */
@@ -93,13 +87,13 @@ type ErrorResponse struct {
 /* Parameters */
 
 type GetPetByIdParams struct {
-	Id     int64  `param:"id"`
-	Locale string `query:"locale"`
+	Id     int64
+	Locale string
 }
 
 type GetPetAudioByIdParams struct {
-	Id     int64  `param:"id"`
-	Locale string `query:"locale"`
+	Id     int64
+	Locale string
 }
 
 type SavePetBulletParams struct {
@@ -109,17 +103,17 @@ type SaveImageParams struct {
 }
 
 type GetStyleParams struct {
-	Theme string `param:"theme"`
+	Theme string
 }
 
 type GetWalkByIdParams struct {
-	Id     int64  `param:"id"`
-	Locale string `query:"locale"`
+	Id     int64
+	Locale string
 }
 
 type GetWalksPreviewParams struct {
-	Iata   string `query:"iata" default:"" validate:""`
-	Locale string `query:"locale"`
+	Iata   string
+	Locale string
 }
 
 /* Requests bodies */
@@ -138,8 +132,8 @@ type SaveImageBody struct {
 
 type GetPetByIdHttp200Response struct {
 	Address          string            `json:"address,omitempty"`
-	Advice           PetAdviceSchema   `json:"advice,omitempty"`
-	Audio            PetAudioSchema    `json:"audio,omitempty"`
+	Advice           *PetAdviceSchema  `json:"advice,omitempty"`
+	Audio            *PetAudioSchema   `json:"audio,omitempty"`
 	Bullets          []PetBulletSchema `json:"bullets,omitempty"`
 	Buttons          []PetButtonSchema `json:"buttons"`
 	Description      string            `json:"description,omitempty"`
@@ -158,7 +152,7 @@ type GetWalkByIdHttp200Response struct {
 	Description string          `json:"description,omitempty"`
 	Duration    int64           `json:"duration,omitempty"`
 	Id          int64           `json:"id,omitempty"`
-	Image       ImageSchema     `json:"image,omitempty"`
+	Image       *ImageSchema    `json:"image,omitempty"`
 	Length      int64           `json:"length,omitempty"`
 	MapGeoJson  string          `json:"map_geo_json,omitempty"`
 	MapImageUrl string          `json:"map_image_url,omitempty"`
@@ -210,205 +204,4 @@ type Controller interface {
 	GetWalksPreview(params *GetWalksPreviewParams, req *http.Request, res http.ResponseWriter) (GetWalksPreviewResponse, error)
 
 	Error(err error) ErrorResponse
-}
-
-var validate *validator.Validate
-
-func validateInputParameters(params interface{}) error {
-	if params == nil {
-		return nil
-	}
-
-	if validate == nil {
-		validate = validator.New()
-		validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
-			name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
-			if name == "-" {
-				return ""
-			}
-			return name
-		})
-	}
-
-	err := validate.Struct(params)
-	if validationErrors, ok := err.(validator.ValidationErrors); ok {
-		for _, e := range validationErrors {
-			return fmt.Errorf("validation error: parameter '%s' (%v), rule: %s \n", e.Field(), e.Value(), e.Tag())
-		}
-	}
-
-	return nil
-}
-
-var defaultBinder = &echo.DefaultBinder{}
-
-func initParameters(c echo.Context, parameters interface{}, body interface{}, controller Controller) error {
-	if body != nil {
-		if err := defaultBinder.BindBody(c, body); err != nil {
-			return c.JSON(http.StatusBadRequest, controller.Error(err))
-		}
-	}
-
-	if err := defaultBinder.BindPathParams(c, parameters); err != nil {
-		return c.JSON(http.StatusBadRequest, controller.Error(err))
-	}
-	if err := defaultBinder.BindQueryParams(c, parameters); err != nil {
-		return c.JSON(http.StatusBadRequest, controller.Error(err))
-	}
-	if err := defaultBinder.BindHeaders(c, parameters); err != nil {
-		return c.JSON(http.StatusBadRequest, controller.Error(err))
-	}
-
-	if err := defaults.Set(parameters); err != nil {
-		return c.JSON(http.StatusInternalServerError, controller.Error(err))
-	}
-	if err := validateInputParameters(parameters); err != nil {
-		return c.JSON(http.StatusBadRequest, controller.Error(err))
-	}
-
-	return nil
-}
-
-func BuildRoutes(e *echo.Group, controller Controller, premium echo.MiddlewareFunc) {
-	// Get Pet by id
-	e.GET("/Pet/:id", func(c echo.Context) error {
-		parameters := &GetPetByIdParams{}
-		if err := initParameters(c, parameters, nil, controller); err != nil {
-			return err
-		}
-
-		response, err := controller.GetPetById(parameters, c.Request(), c.Response().Writer)
-		if err != nil {
-			return c.JSON(response.Code, controller.Error(err))
-		}
-
-		if response.Http200 != nil {
-			if response.Code == 0 {
-				response.Code = 200
-			}
-			return c.JSON(response.Code, response.Http200)
-		}
-
-		return c.NoContent(response.Code)
-	}, premium)
-
-	// Get Pet audio file by id
-	e.GET("/Pet/:id/audio.mp3", func(c echo.Context) error {
-		parameters := &GetPetAudioByIdParams{}
-		if err := initParameters(c, parameters, nil, controller); err != nil {
-			return err
-		}
-
-		response, err := controller.GetPetAudioById(parameters, c.Request(), c.Response().Writer)
-		if err != nil {
-			return c.JSON(response, controller.Error(err))
-		}
-
-		return c.NoContent(response)
-	}, premium)
-
-	// Create new Pet bullet
-	e.POST("/Pet_bullet", func(c echo.Context) error {
-		body := &SavePetBulletBody{}
-		parameters := &SavePetBulletParams{}
-		if err := initParameters(c, parameters, body, controller); err != nil {
-			return err
-		}
-
-		response, err := controller.SavePetBullet(parameters, body, c.Request(), c.Response().Writer)
-		if err != nil {
-			return c.JSON(response, controller.Error(err))
-		}
-
-		return c.NoContent(response)
-	})
-
-	e.POST("/image", func(c echo.Context) error {
-		body := &SaveImageBody{}
-		parameters := &SaveImageParams{}
-		if err := initParameters(c, parameters, body, controller); err != nil {
-			return err
-		}
-
-		response, err := controller.SaveImage(parameters, body, c.Request(), c.Response().Writer)
-		if err != nil {
-			return c.JSON(response.Code, controller.Error(err))
-		}
-
-		if response.Http200 != nil {
-			if response.Code == 0 {
-				response.Code = 200
-			}
-			return c.JSON(response.Code, response.Http200)
-		}
-
-		return c.NoContent(response.Code)
-	})
-
-	// Get light/dark theme
-	e.GET("/style_:theme", func(c echo.Context) error {
-		parameters := &GetStyleParams{}
-		if err := initParameters(c, parameters, nil, controller); err != nil {
-			return err
-		}
-
-		response, err := controller.GetStyle(parameters, c.Request(), c.Response().Writer)
-		if err != nil {
-			return c.JSON(response.Code, controller.Error(err))
-		}
-
-		if response.Http200 != nil {
-			if response.Code == 0 {
-				response.Code = 200
-			}
-			return c.JSON(response.Code, response.Http200)
-		}
-
-		return c.NoContent(response.Code)
-	})
-
-	// Get walk by id
-	e.GET("/walk/:id", func(c echo.Context) error {
-		parameters := &GetWalkByIdParams{}
-		if err := initParameters(c, parameters, nil, controller); err != nil {
-			return err
-		}
-
-		response, err := controller.GetWalkById(parameters, c.Request(), c.Response().Writer)
-		if err != nil {
-			return c.JSON(response.Code, controller.Error(err))
-		}
-
-		if response.Http200 != nil {
-			if response.Code == 0 {
-				response.Code = 200
-			}
-			return c.JSON(response.Code, response.Http200)
-		}
-
-		return c.NoContent(response.Code)
-	})
-
-	// Get all walks
-	e.GET("/walks_previews", func(c echo.Context) error {
-		parameters := &GetWalksPreviewParams{}
-		if err := initParameters(c, parameters, nil, controller); err != nil {
-			return err
-		}
-
-		response, err := controller.GetWalksPreview(parameters, c.Request(), c.Response().Writer)
-		if err != nil {
-			return c.JSON(response.Code, controller.Error(err))
-		}
-
-		if response.Http200 != nil {
-			if response.Code == 0 {
-				response.Code = 200
-			}
-			return c.JSON(response.Code, response.Http200)
-		}
-
-		return c.NoContent(response.Code)
-	})
-
 }

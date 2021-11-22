@@ -1,0 +1,58 @@
+openapi: '3.0.3'
+info:
+  description: API
+  title: Title
+  version: '1.0'
+paths:
+  /test:
+    get:
+      parameters:
+        - name: in_1
+          in: query
+          schema:
+            $ref: '#/components/schemas/InnerMap'
+        - name: in_2
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/InnerMap'
+        - name: in_3
+          in: query
+          schema:
+            $ref: '#/components/schemas/InnerStruct'
+        - name: in_4
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/InnerStruct'
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    InnerMap:
+      type: object
+      additionalProperties: true
+    InnerStruct:
+      type: object
+      properties:
+        x:
+          type: string
+        y:
+          type: string
+    Outer:
+      type: object
+      required:
+        - inner1
+        - inner3
+      properties:
+        inner1:
+          $ref: '#/components/schemas/InnerMap'
+        inner2:
+          $ref: '#/components/schemas/InnerMap'
+        inner3:
+          $ref: '#/components/schemas/InnerStruct'
+        inner4:
+          $ref: '#/components/schemas/InnerStruct'
+        z:
+          type: string

@@ -81,6 +81,7 @@ func generate(yamlContent []byte, serverName string) ([]byte, error) {
 		"dict":                    templateMap,
 		"isNillableSchema":        s.IsNillableSchema,
 		"isOmmitableSchema":       s.IsOmmitableSchema,
+		"isStruct":                s.IsStruct,
 		"getUnderlyingSchema":     s.GetUnderlyingSchema,
 		"hasGenericErrorResponse": s.HasGenericErrorResponse,
 		"server":                  func() Server { return server },

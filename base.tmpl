@@ -46,7 +46,15 @@ import (
 {{ range $name, $schema := .Properties -}}
     {{- if ne $schema.Format "binary" -}}
         {{- $isOptional := $parentSchema.IsFieldOptional $name -}}
-        {{ toCamel $name }} {{ if and $isOptional (not isOmittingFields) }}{{ template "pointerForOmmitableSchema" $schema }}{{ end }}{{ template "schemaType" $schema }} `json:"{{ $name }}{{ if and $isOptional isOmittingFields }},omitempty{{ end }}"`
+        {{ toCamel $name }}{{ " " }}
+        {{- if $isOptional }}
+            {{- if isOmittingFields }}
+                {{- if isStruct $schema }}*{{ end }}
+            {{- else }}
+                {{- template "pointerForOmmitableSchema" $schema }}
+            {{- end }}
+        {{- end }}
+        {{- template "schemaType" $schema }} `json:"{{ $name }}{{ if and $isOptional isOmittingFields }},omitempty{{ end }}"`
     {{- end }}
 {{ end }}
 {{ end }}

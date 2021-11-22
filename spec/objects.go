@@ -433,6 +433,15 @@ func (s Spec) IsNillableSchema(schema Schema) bool {
 	})
 }
 
+func (s Spec) IsStruct(schema Schema) bool {
+	return s.traverseSchema(schema, func(schema Schema) bool {
+		if schema.Type.IsObject() && schema.AdditionalProperties == nil {
+			return true
+		}
+		return false
+	})
+}
+
 func (s Spec) IsOmmitableSchema(schema Schema) bool {
 	return s.traverseSchema(schema, func(schema Schema) bool {
 		if schema.AdditionalProperties != nil {
