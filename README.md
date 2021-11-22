@@ -8,6 +8,13 @@ Simple OpenAPI 3 code generator with zero or minimum server boilerplate
 * Easy middlewares with custom `x-middlewares` object
 * Easy error responses - just add `components/schemas/Error` object
 
+# Usage
+```
+go get -d github.com/godknowsiamgood/oapi3gen
+go install github.com/godknowsiamgood/oapi3gen
+oapi3gen [-server echo] [-output ./out.go] spec.yaml
+```
+
 # Code generation
 Program generates only one file with strongly types for request parameters, request bodies and responses.
 Also it generates interface type for controller that you may implement.
