@@ -39,7 +39,7 @@ func validateInputParameters(params interface{}) error {
 
 var defaultBinder = &echo.DefaultBinder{}
 
-func initParameters(c echo.Context, parameters interface{}, body interface{}) error {
+func initParameters(c echo.Context, parameters interface{}, body interface{}, controller Controller) error {
     if body != nil {
         if err := defaultBinder.BindBody(c, body); err != nil {
             return {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
@@ -81,7 +81,7 @@ func BuildRoutes(e *echo.Group, controller Controller
         body := &{{ $methodName }}Body{}
         {{- end }}
         parameters := &{{ $methodName }}Params{}
-        if err := initParameters(c, parameters, {{ if $operation.HasRequestBodyBindableParameters -}}body{{ else }}nil{{ end }}); err != nil {
+        if err := initParameters(c, parameters, {{ if $operation.HasRequestBodyBindableParameters -}}body{{ else }}nil{{ end }}, controller); err != nil {
             return err
         }
 
