@@ -18,7 +18,7 @@ import (
 
 func generate(yamlContent []byte, serverName string) ([]byte, error) {
 	if isVerbose {
-		log("Validating spec...")
+		log("Validating spec for yaml file ($v bytes)...", len(yamlContent))
 	}
 
 	doc, err := openapi3.NewLoader().LoadFromData(yamlContent)
@@ -38,6 +38,10 @@ func generate(yamlContent []byte, serverName string) ([]byte, error) {
 
 	if err := yaml.Unmarshal(yamlContent, &s); err != nil {
 		return nil, fmt.Errorf("schema parsing failed: %v", err)
+	}
+
+	if isVerbose {
+		log("Parsed spec '%v'", s.Info.Title)
 	}
 
 	var server Server
