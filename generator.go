@@ -17,6 +17,10 @@ import (
 )
 
 func generate(yamlContent []byte, serverName string) ([]byte, error) {
+	if isVerbose {
+		log("Validating spec...")
+	}
+
 	doc, err := openapi3.NewLoader().LoadFromData(yamlContent)
 	if err != nil {
 		return nil, fmt.Errorf("schema parsing failed: %v", err)
@@ -24,6 +28,10 @@ func generate(yamlContent []byte, serverName string) ([]byte, error) {
 
 	if err := doc.Validate(context.TODO()); err != nil {
 		return nil, fmt.Errorf("schema validation failed: %v", err)
+	}
+
+	if isVerbose {
+		log("Parsing spec...")
 	}
 
 	s := spec.Spec{}
@@ -38,6 +46,10 @@ func generate(yamlContent []byte, serverName string) ([]byte, error) {
 		server = &echo.Server{Spec: s}
 	default:
 		server = DefaultServer{}
+	}
+
+	if isVerbose {
+		log("Loading templates...")
 	}
 
 	baseTemplateFile, _ := ioutil.ReadFile("./base.tmpl")
@@ -80,12 +92,20 @@ func generate(yamlContent []byte, serverName string) ([]byte, error) {
 		templateFunctions[k] = v
 	}
 
+	if isVerbose {
+		log("Parsing templates...")
+	}
+
 	t, err := template.New("echo.tmpl").Funcs(templateFunctions).Parse(baseTemplateContent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile template: %v", err)
 	}
 
 	sb := new(bytes.Buffer)
+
+	if isVerbose {
+		log("Generating code...")
+	}
 
 	if err := t.Execute(sb, s); err != nil {
 		return nil, fmt.Errorf("code generation failed: %v", err)

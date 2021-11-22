@@ -24,47 +24,63 @@ func templateMap(values ...interface{}) (map[string]interface{}, error) {
 	return dict, nil
 }
 
-func log(format string, vars ...interface{}) {
+func logError(format string, vars ...interface{}) {
 	_, _ = fmt.Fprintf(os.Stderr, format+"\n", vars...)
 }
 
+func log(format string, vars ...interface{}) {
+	_, _ = fmt.Fprintf(os.Stdout, format+"\n", vars...)
+}
+
+var isVerbose = false
+
 func main() {
 	if len(os.Args) == 1 {
-		log("yml s file should be provided")
+		logError("yml file should be provided")
 		return
 	}
 
 	serverFlag := flag.String("server", "", "server implementation")
 	outputFlag := flag.String("output", "", "output file")
+	verboseFlag := flag.Bool("verbose", false, "show additional info")
 
 	flag.Parse()
 
+	isVerbose = *verboseFlag
 	specFileName := os.Args[len(os.Args)-1]
+
+	if isVerbose {
+		log("Reading spec file %v...", specFileName)
+	}
 
 	specFileData, err := ioutil.ReadFile(specFileName)
 	if err != nil {
-		log("fiel not found: %v", err)
+		logError("file not found: %v", err)
 		return
 	}
 
 	out, err := generate(specFileData, *serverFlag)
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "%v", err)
+		logError("$v", err)
 		return
+	}
+
+	if isVerbose {
+		log("Output code...")
 	}
 
 	if *outputFlag != "" {
 		genDirOutput := filepath.Dir(*outputFlag)
 		if err := os.MkdirAll(genDirOutput, 0750); err != nil {
-			log("saving generated code failed: %v", err)
+			logError("saving generated code failed: %v", err)
 		}
 		if err := ioutil.WriteFile(*outputFlag, out, 0755); err != nil {
-			log("saving generated code failed: %v", err)
+			logError("saving generated code failed: %v", err)
 			return
 		}
 	} else {
 		if _, err := fmt.Fprintf(os.Stdout, "%s", out); err != nil {
-			log("%v", err)
+			logError("%v", err)
 		}
 	}
 }
