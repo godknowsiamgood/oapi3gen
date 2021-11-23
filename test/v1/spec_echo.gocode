@@ -5,7 +5,13 @@ package v1
 **/
 
 import (
+	"fmt"
+	"github.com/creasty/defaults"
+	"github.com/go-playground/validator/v10"
+	"github.com/labstack/echo/v4"
 	"net/http"
+	"reflect"
+	"strings"
 )
 
 /* Components schemas */
@@ -42,9 +48,6 @@ type PetsSchema []PetSchema
 
 /* Parameters */
 
-type GetAaaParams struct {
-}
-
 type PostAaaParams struct {
 	Test *int64 `query:"test"`
 }
@@ -53,35 +56,8 @@ type PutAaaParams struct {
 	Test *int64 `query:"test"`
 }
 
-type GetArray1Params struct {
-}
-
-type GetArray2Params struct {
-}
-
-type PostBbbParams struct {
-}
-
-type PostBody1Params struct {
-}
-
-type PostBody2Params struct {
-}
-
-type PostBody3Params struct {
-}
-
-type PostBody4Params struct {
-}
-
-type PostCccParams struct {
-}
-
 type ListPetsParams struct {
 	Limit *int32 `query:"limit"`
-}
-
-type CreatePetsParams struct {
 }
 
 type ShowPetByIdParams struct {
@@ -160,19 +136,19 @@ type ShowPetByIdResponse struct {
 }
 
 type Controller interface {
-	GetAaa(params *GetAaaParams, req *http.Request, res http.ResponseWriter) int
+	GetAaa(req *http.Request, res http.ResponseWriter) int
 	PostAaa(params *PostAaaParams, body *PostAaaBody, req *http.Request, res http.ResponseWriter) int
 	PutAaa(params *PutAaaParams, body *PutAaaBody, req *http.Request, res http.ResponseWriter) int
-	GetArray1(params *GetArray1Params, req *http.Request, res http.ResponseWriter) GetArray1Response
-	GetArray2(params *GetArray2Params, req *http.Request, res http.ResponseWriter) GetArray2Response
-	PostBbb(params *PostBbbParams, body *PostBbbBody, req *http.Request, res http.ResponseWriter) int
-	PostBody1(params *PostBody1Params, body *PostBody1Body, req *http.Request, res http.ResponseWriter) int
-	PostBody2(params *PostBody2Params, body *PostBody2Body, req *http.Request, res http.ResponseWriter) int
-	PostBody3(params *PostBody3Params, body *PostBody3Body, req *http.Request, res http.ResponseWriter) int
-	PostBody4(params *PostBody4Params, body *PostBody4Body, req *http.Request, res http.ResponseWriter) int
-	PostCcc(params *PostCccParams, req *http.Request, res http.ResponseWriter) int
+	GetArray1(req *http.Request, res http.ResponseWriter) GetArray1Response
+	GetArray2(req *http.Request, res http.ResponseWriter) GetArray2Response
+	PostBbb(body *PostBbbBody, req *http.Request, res http.ResponseWriter) int
+	PostBody1(body *PostBody1Body, req *http.Request, res http.ResponseWriter) int
+	PostBody2(body *PostBody2Body, req *http.Request, res http.ResponseWriter) int
+	PostBody3(body *PostBody3Body, req *http.Request, res http.ResponseWriter) int
+	PostBody4(body *PostBody4Body, req *http.Request, res http.ResponseWriter) int
+	PostCcc(req *http.Request, res http.ResponseWriter) int
 	ListPets(params *ListPetsParams, req *http.Request, res http.ResponseWriter) ListPetsResponse
-	CreatePets(params *CreatePetsParams, req *http.Request, res http.ResponseWriter) CreatePetsResponse
+	CreatePets(req *http.Request, res http.ResponseWriter) CreatePetsResponse
 	ShowPetById(params *ShowPetByIdParams, req *http.Request, res http.ResponseWriter) ShowPetByIdResponse
 	PostTestFromData(params *PostTestFromDataParams, body *PostTestFromDataBody, req *http.Request, res http.ResponseWriter) int
 	GetTestInners(params *GetTestInnersParams, req *http.Request, res http.ResponseWriter) int
@@ -215,35 +191,36 @@ func initParameters(c echo.Context, parameters interface{}, body interface{}, co
 		}
 	}
 
-	if err := defaultBinder.BindPathParams(c, parameters); err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
-	}
-	if err := defaultBinder.BindQueryParams(c, parameters); err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
-	}
-	if err := defaultBinder.BindHeaders(c, parameters); err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
-	}
+	if parameters != nil {
+		if err := defaultBinder.BindPathParams(c, parameters); err != nil {
+			return c.String(http.StatusBadRequest, err.Error())
+		}
+		if err := defaultBinder.BindQueryParams(c, parameters); err != nil {
+			return c.String(http.StatusBadRequest, err.Error())
+		}
+		if err := defaultBinder.BindHeaders(c, parameters); err != nil {
+			return c.String(http.StatusBadRequest, err.Error())
+		}
 
-	if err := defaults.Set(parameters); err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
-	}
-	if err := validateInputParameters(parameters); err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
+		if err := defaults.Set(parameters); err != nil {
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
+		if err := validateInputParameters(parameters); err != nil {
+			return c.String(http.StatusBadRequest, err.Error())
+		}
 	}
 
 	return nil
 }
 
 func BuildRoutes(e *echo.Group, controller Controller) {
-
 	e.GET("/aaa", func(c echo.Context) error {
-		parameters := &GetAaaParams{}
-		if err := initParameters(c, parameters, nil, controller); err != nil {
+
+		if err := initParameters(c, nil, nil, controller); err != nil {
 			return err
 		}
 
-		response := controller.GetAaa(parameters, c.Request(), c.Response().Writer)
+		response := controller.GetAaa(c.Request(), c.Response().Writer)
 
 		return c.NoContent(response)
 	})
@@ -251,6 +228,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	e.POST("/aaa", func(c echo.Context) error {
 		body := &PostAaaBody{}
 		parameters := &PostAaaParams{}
+
 		if err := initParameters(c, parameters, body, controller); err != nil {
 			return err
 		}
@@ -263,6 +241,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	e.PUT("/aaa", func(c echo.Context) error {
 		body := &PutAaaBody{}
 		parameters := &PutAaaParams{}
+
 		if err := initParameters(c, parameters, body, controller); err != nil {
 			return err
 		}
@@ -273,12 +252,12 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	})
 
 	e.GET("/array1", func(c echo.Context) error {
-		parameters := &GetArray1Params{}
-		if err := initParameters(c, parameters, nil, controller); err != nil {
+
+		if err := initParameters(c, nil, nil, controller); err != nil {
 			return err
 		}
 
-		response := controller.GetArray1(parameters, c.Request(), c.Response().Writer)
+		response := controller.GetArray1(c.Request(), c.Response().Writer)
 
 		if response.Http200 != nil {
 			if response.Code == 0 {
@@ -291,12 +270,12 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	})
 
 	e.GET("/array2", func(c echo.Context) error {
-		parameters := &GetArray2Params{}
-		if err := initParameters(c, parameters, nil, controller); err != nil {
+
+		if err := initParameters(c, nil, nil, controller); err != nil {
 			return err
 		}
 
-		response := controller.GetArray2(parameters, c.Request(), c.Response().Writer)
+		response := controller.GetArray2(c.Request(), c.Response().Writer)
 
 		if response.Http200 != nil {
 			if response.Code == 0 {
@@ -310,77 +289,78 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 
 	e.POST("/bbb", func(c echo.Context) error {
 		body := &PostBbbBody{}
-		parameters := &PostBbbParams{}
-		if err := initParameters(c, parameters, body, controller); err != nil {
+
+		if err := initParameters(c, nil, body, controller); err != nil {
 			return err
 		}
 
-		response := controller.PostBbb(parameters, body, c.Request(), c.Response().Writer)
+		response := controller.PostBbb(body, c.Request(), c.Response().Writer)
 
 		return c.NoContent(response)
 	})
 
 	e.POST("/body1", func(c echo.Context) error {
 		body := &PostBody1Body{}
-		parameters := &PostBody1Params{}
-		if err := initParameters(c, parameters, body, controller); err != nil {
+
+		if err := initParameters(c, nil, body, controller); err != nil {
 			return err
 		}
 
-		response := controller.PostBody1(parameters, body, c.Request(), c.Response().Writer)
+		response := controller.PostBody1(body, c.Request(), c.Response().Writer)
 
 		return c.NoContent(response)
 	})
 
 	e.POST("/body2", func(c echo.Context) error {
 		body := &PostBody2Body{}
-		parameters := &PostBody2Params{}
-		if err := initParameters(c, parameters, body, controller); err != nil {
+
+		if err := initParameters(c, nil, body, controller); err != nil {
 			return err
 		}
 
-		response := controller.PostBody2(parameters, body, c.Request(), c.Response().Writer)
+		response := controller.PostBody2(body, c.Request(), c.Response().Writer)
 
 		return c.NoContent(response)
 	})
 
 	e.POST("/body3", func(c echo.Context) error {
 		body := &PostBody3Body{}
-		parameters := &PostBody3Params{}
-		if err := initParameters(c, parameters, body, controller); err != nil {
+
+		if err := initParameters(c, nil, body, controller); err != nil {
 			return err
 		}
 
-		response := controller.PostBody3(parameters, body, c.Request(), c.Response().Writer)
+		response := controller.PostBody3(body, c.Request(), c.Response().Writer)
 
 		return c.NoContent(response)
 	})
 
 	e.POST("/body4", func(c echo.Context) error {
 		body := &PostBody4Body{}
-		parameters := &PostBody4Params{}
-		if err := initParameters(c, parameters, body, controller); err != nil {
+
+		if err := initParameters(c, nil, body, controller); err != nil {
 			return err
 		}
 
-		response := controller.PostBody4(parameters, body, c.Request(), c.Response().Writer)
+		response := controller.PostBody4(body, c.Request(), c.Response().Writer)
 
 		return c.NoContent(response)
 	})
 
 	e.POST("/ccc", func(c echo.Context) error {
-		parameters := &PostCccParams{}
-		if err := initParameters(c, parameters, nil, controller); err != nil {
+
+		if err := initParameters(c, nil, nil, controller); err != nil {
 			return err
 		}
 
-		response := controller.PostCcc(parameters, c.Request(), c.Response().Writer)
+		response := controller.PostCcc(c.Request(), c.Response().Writer)
 
 		return c.NoContent(response)
 	})
 
 	e.GET("/pets", func(c echo.Context) error {
 		parameters := &ListPetsParams{}
+
 		if err := initParameters(c, parameters, nil, controller); err != nil {
 			return err
 		}
@@ -404,12 +384,12 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	})
 
 	e.POST("/pets", func(c echo.Context) error {
-		parameters := &CreatePetsParams{}
-		if err := initParameters(c, parameters, nil, controller); err != nil {
+
+		if err := initParameters(c, nil, nil, controller); err != nil {
 			return err
 		}
 
-		response := controller.CreatePets(parameters, c.Request(), c.Response().Writer)
+		response := controller.CreatePets(c.Request(), c.Response().Writer)
 
 		if response.HttpDefault != nil {
 			if response.Code == 0 {
@@ -423,6 +403,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 
 	e.GET("/pets/:petId", func(c echo.Context) error {
 		parameters := &ShowPetByIdParams{}
+
 		if err := initParameters(c, parameters, nil, controller); err != nil {
 			return err
 		}
@@ -448,6 +429,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	e.POST("/testFromData", func(c echo.Context) error {
 		body := &PostTestFromDataBody{}
 		parameters := &PostTestFromDataParams{}
+
 		if err := initParameters(c, parameters, body, controller); err != nil {
 			return err
 		}
@@ -459,6 +441,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 
 	e.GET("/test_inners", func(c echo.Context) error {
 		parameters := &GetTestInnersParams{}
+
 		if err := initParameters(c, parameters, nil, controller); err != nil {
 			return err
 		}

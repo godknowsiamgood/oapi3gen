@@ -42,9 +42,6 @@ type PetsSchema []PetSchema
 
 /* Parameters */
 
-type GetAaaParams struct {
-}
-
 type PostAaaParams struct {
 	Test *int64
 }
@@ -53,35 +50,8 @@ type PutAaaParams struct {
 	Test *int64
 }
 
-type GetArray1Params struct {
-}
-
-type GetArray2Params struct {
-}
-
-type PostBbbParams struct {
-}
-
-type PostBody1Params struct {
-}
-
-type PostBody2Params struct {
-}
-
-type PostBody3Params struct {
-}
-
-type PostBody4Params struct {
-}
-
-type PostCccParams struct {
-}
-
 type ListPetsParams struct {
 	Limit *int32
-}
-
-type CreatePetsParams struct {
 }
 
 type ShowPetByIdParams struct {
@@ -160,19 +130,19 @@ type ShowPetByIdResponse struct {
 }
 
 type Controller interface {
-	GetAaa(params *GetAaaParams, req *http.Request, res http.ResponseWriter) int
+	GetAaa(req *http.Request, res http.ResponseWriter) int
 	PostAaa(params *PostAaaParams, body *PostAaaBody, req *http.Request, res http.ResponseWriter) int
 	PutAaa(params *PutAaaParams, body *PutAaaBody, req *http.Request, res http.ResponseWriter) int
-	GetArray1(params *GetArray1Params, req *http.Request, res http.ResponseWriter) GetArray1Response
-	GetArray2(params *GetArray2Params, req *http.Request, res http.ResponseWriter) GetArray2Response
-	PostBbb(params *PostBbbParams, body *PostBbbBody, req *http.Request, res http.ResponseWriter) int
-	PostBody1(params *PostBody1Params, body *PostBody1Body, req *http.Request, res http.ResponseWriter) int
-	PostBody2(params *PostBody2Params, body *PostBody2Body, req *http.Request, res http.ResponseWriter) int
-	PostBody3(params *PostBody3Params, body *PostBody3Body, req *http.Request, res http.ResponseWriter) int
-	PostBody4(params *PostBody4Params, body *PostBody4Body, req *http.Request, res http.ResponseWriter) int
-	PostCcc(params *PostCccParams, req *http.Request, res http.ResponseWriter) int
+	GetArray1(req *http.Request, res http.ResponseWriter) GetArray1Response
+	GetArray2(req *http.Request, res http.ResponseWriter) GetArray2Response
+	PostBbb(body *PostBbbBody, req *http.Request, res http.ResponseWriter) int
+	PostBody1(body *PostBody1Body, req *http.Request, res http.ResponseWriter) int
+	PostBody2(body *PostBody2Body, req *http.Request, res http.ResponseWriter) int
+	PostBody3(body *PostBody3Body, req *http.Request, res http.ResponseWriter) int
+	PostBody4(body *PostBody4Body, req *http.Request, res http.ResponseWriter) int
+	PostCcc(req *http.Request, res http.ResponseWriter) int
 	ListPets(params *ListPetsParams, req *http.Request, res http.ResponseWriter) ListPetsResponse
-	CreatePets(params *CreatePetsParams, req *http.Request, res http.ResponseWriter) CreatePetsResponse
+	CreatePets(req *http.Request, res http.ResponseWriter) CreatePetsResponse
 	ShowPetById(params *ShowPetByIdParams, req *http.Request, res http.ResponseWriter) ShowPetByIdResponse
 	PostTestFromData(params *PostTestFromDataParams, body *PostTestFromDataBody, req *http.Request, res http.ResponseWriter) int
 	GetTestInners(params *GetTestInnersParams, req *http.Request, res http.ResponseWriter) int

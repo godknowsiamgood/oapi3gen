@@ -117,11 +117,13 @@ type {{ $name }}Response {{ template "refOrSchema" dict "Ref" $response.Ref "Sch
 {{ setContext "parameters" }}
 {{ range $path, $operations := .Paths }}
 {{ range $method, $operation := $operations }}
+{{ if len $operation.Parameters }}
 type {{ operationId $path $method $operation }}Params struct {
     {{ range $operation.Parameters -}}
     {{ toCamel .Name }} {{ if and (not .IsRequired) (not .HasDefault) }}{{ template "pointerForSchema" .Schema }}{{ end }}{{ template "schemaType" .Schema }} {{ server.OperationParameterTags . }}
     {{ end }}
 }
+{{ end }}
 {{ end }}
 {{ end }}
 
@@ -175,7 +177,14 @@ type Controller interface {
     {{ range $path, $operations := .Paths -}}
     {{- range $method, $operation := $operations -}}
     {{- $baseName := operationId $path $method $operation -}}
-    {{ $baseName }}(params *{{ $baseName }}Params, {{ if $operation.HasRequestBodyBindableParameters }} body *{{ $baseName }}Body,{{ end }} req *http.Request, res http.ResponseWriter) (
+    {{ $baseName }}(
+        {{- if len $operation.Parameters -}}
+            params *{{ $baseName }}Params,
+        {{- end }}
+        {{- if $operation.HasRequestBodyBindableParameters -}}
+            body *{{ $baseName }}Body,
+        {{- end -}}
+        req *http.Request, res http.ResponseWriter) (
         {{- if not $operation.IsAllEmptyResponses -}}
         {{ $baseName }}Response
         {{- else -}}
