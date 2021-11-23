@@ -36,6 +36,26 @@ func (s *Server) TemplateFunctions() template.FuncMap {
 	}
 }
 
+func (s *Server) FieldTags(context string, name string, field spec.Schema, parent spec.Schema) string {
+	var tags []string
+
+	if context == spec.PropertiesContextComponents {
+		omitempty := ""
+		if parent.IsFieldOptional(name) {
+			omitempty = ",omitempty"
+		}
+		tags = append(tags, "json:\""+name+omitempty+"\"")
+	} else if context == spec.PropertiesContextRequestBody {
+		tags = append(tags, "form:\""+name+"\"")
+	}
+
+	if len(tags) == 0 {
+		return ""
+	}
+
+	return "`" + strings.Join(tags, " ") + "`"
+}
+
 func (s *Server) OperationParameterTags(param spec.Parameter) string {
 	var tags []string
 
@@ -73,7 +93,7 @@ func (s *Server) OperationParameterTags(param spec.Parameter) string {
 	if schema.MaximumLength != nil {
 		validations = append(validations, "max="+strconv.Itoa(*schema.MaximumLength))
 	}
-	if len(validations) == 0 {
+	if len(validations) > 0 {
 		tags = append(tags, "validate:\""+strings.Join(validations, ",")+"\"")
 	}
 

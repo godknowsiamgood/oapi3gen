@@ -72,7 +72,7 @@ func generate(yamlContent []byte, serverName string) ([]byte, error) {
 	baseTemplateContent = strings.Replace(baseTemplateContent, "%server%", serverTmplReplace, 1)
 	baseTemplateContent = strings.Replace(baseTemplateContent, "%boilerplate%", serverBoilerplateReplace, 1)
 
-	isOmittingFields := false
+	objectsContext := "default"
 
 	templateFunctions := template.FuncMap{
 		"operationId":             spec.OperationId,
@@ -85,9 +85,9 @@ func generate(yamlContent []byte, serverName string) ([]byte, error) {
 		"getUnderlyingSchema":     s.GetUnderlyingSchema,
 		"hasGenericErrorResponse": s.HasGenericErrorResponse,
 		"server":                  func() Server { return server },
-		"isOmittingFields":        func() bool { return isOmittingFields },
-		"setOmittingFields": func(set bool) string {
-			isOmittingFields = set
+		"getContext":              func() string { return objectsContext },
+		"setContext": func(c string) string {
+			objectsContext = c
 			return ""
 		},
 	}

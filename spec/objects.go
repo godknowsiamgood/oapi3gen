@@ -10,6 +10,10 @@ import (
 	"strings"
 )
 
+const PropertiesContextComponents string = "components"
+const PropertiesContextParameters string = "parameters"
+const PropertiesContextRequestBody string = "requestBody"
+
 type Ref string
 
 func (r Ref) IsSet() bool {

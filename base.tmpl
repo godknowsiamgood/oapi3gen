@@ -36,6 +36,10 @@ import (
 {{ if not (isNillableSchema (getUnderlyingSchema .)) }}*{{ end }}
 {{- end -}}
 
+{{- define "pointerForBodyRequest" -}}
+{{ if not (isNillableSchema (getUnderlyingSchema .)) }}*{{ end }}
+{{- end -}}
+
 {{- define "defaults" -}}
 {{- $tags := .GetDefaultsTags -}}
 {{- if $tags }} {{ $tags }}{{ end -}}
@@ -44,17 +48,19 @@ import (
 {{ define "properties" }}
 {{- $parentSchema := . -}}
 {{ range $name, $schema := .Properties -}}
-    {{- if ne $schema.Format "binary" -}}
-        {{- $isOptional := $parentSchema.IsFieldOptional $name -}}
-        {{ toCamel $name }}{{ " " }}
-        {{- if $isOptional }}
-            {{- if isOmittingFields }}
-                {{- if isStruct $schema }}*{{ end }}
+    {{- if ne $schema.Format "binary" -}} {{/* don't bother with binary fields, they can be handled in controllers */}}
+        {{- toCamel $name }}{{ " " }}
+        {{- if $parentSchema.IsFieldOptional $name }}
+            {{- if isStruct $schema -}}
+            * {{/* optional struct is always with pointer */}}
             {{- else }}
-                {{- template "pointerForOmmitableSchema" $schema }}
+                {{- if eq getContext "parameters" }}
+                    {{- template "pointerForOmmitableSchema" $schema }}
+                {{- end }}
             {{- end }}
         {{- end }}
-        {{- template "schemaType" $schema }} `json:"{{ $name }}{{ if and $isOptional isOmittingFields }},omitempty{{ end }}"`
+        {{- template "schemaType" $schema }} {{ " " }}
+        {{- server.FieldTags getContext $name . $parentSchema }}
     {{- end }}
 {{ end }}
 {{ end }}
@@ -91,7 +97,7 @@ import (
 {{ end -}}
 
 
-{{ setOmittingFields true }}
+{{ setContext "components" }}
 
 /* Components schemas */
 {{ range $name, $schema := .Components.Schemas }}
@@ -104,7 +110,7 @@ type {{ $name }}Response {{ template "refOrSchema" dict "Ref" $response.Ref "Sch
 {{ end }}
 
 /* Parameters */
-{{ setOmittingFields false }}
+{{ setContext "parameters" }}
 {{ range $path, $operations := .Paths }}
 {{ range $method, $operation := $operations }}
 type {{ operationId $path $method $operation }}Params struct {
@@ -116,19 +122,18 @@ type {{ operationId $path $method $operation }}Params struct {
 {{ end }}
 
 /* Requests bodies */
-{{ setOmittingFields false }}
+{{ setContext "requestBody" }}
 {{ range $path, $operations := .Paths }}
 {{ range $method, $operation := $operations }}
 {{ if $operation.HasRequestBodyBindableParameters }}
 type {{ operationId $path $method $operation }}Body{{ " " }}
-    {{- if not $operation.RequestBody.IsRequired }}{{ template "pointerForSchema" $operation.RequestBody.Content.GetBindableParametersSchema }}{{ end }}
     {{- template "schemaType" $operation.RequestBody.Content.GetBindableParametersSchema }}
 {{ end }}
 {{ end }}
 {{ end }}
 
 /* Response objects */
-{{ setOmittingFields true }}
+{{ setContext "components" }}
 {{ range $path, $operations := .Paths }}
 {{ range $method, $operation := $operations }}
 {{ range $statusCode, $response := $operation.Responses -}}

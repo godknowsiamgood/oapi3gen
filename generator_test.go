@@ -2,20 +2,27 @@ package main
 
 import (
 	"io/ioutil"
-	"strconv"
 	"testing"
 )
 
 func Test(t *testing.T) {
-	for i := 1; i <= 4; i++ {
-		yamlContent, _ := ioutil.ReadFile("./test/v" + strconv.Itoa(i) + "/spec.yaml")
-		goContent, _ := ioutil.ReadFile("./test/v" + strconv.Itoa(i) + "/spec.go")
-		out, err := generate(yamlContent, "")
-		if err != nil {
-			t.Error(err)
-		}
-		if string(out) != string(goContent) {
-			t.Error(":(")
-		}
+	yamlContent, _ := ioutil.ReadFile("./test/v1/spec.yaml")
+	goContent, _ := ioutil.ReadFile("./test/v1/spec.gocode")
+	out, err := generate(yamlContent, "")
+	if err != nil {
+		t.Error(err)
+	}
+	if string(out) != string(goContent) {
+		t.Errorf("failed")
+	}
+
+	yamlContent, _ = ioutil.ReadFile("./test/v1/spec.yaml")
+	goContent, _ = ioutil.ReadFile("./test/v1/spec_echo.gocode")
+	out, err = generate(yamlContent, "echo")
+	if err != nil {
+		t.Error(err)
+	}
+	if string(out) != string(goContent) {
+		t.Errorf("failed")
 	}
 }

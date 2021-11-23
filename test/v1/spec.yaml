@@ -7,6 +7,55 @@ info:
 servers:
   - url: http://petstore.swagger.io/v1
 paths:
+  /body1:
+    post:
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+      responses:
+        '200':
+          description: OK
+  /body2:
+    post:
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: OK
+  /body3:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: OK
+  /body4:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                a:
+                  type: string
+      responses:
+        '200':
+          description: OK
   /pets:
     get:
       summary: List all pets
@@ -79,8 +128,160 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
+  /ccc:
+    post:
+      requestBody:
+        required: false
+        content:
+          image/png:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: OK
+  /bbb:
+    post:
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: integer
+      responses:
+        '200':
+          description: OK
+  /aaa:
+    post:
+      parameters:
+        - name: test
+          in: query
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+      responses:
+        '200':
+          description: OK
+    put:
+      parameters:
+        - name: test
+          in: query
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+      responses:
+        '200':
+          description: OK
+    get:
+      responses:
+        '200':
+          description: A paged array of pets
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+
+  /test_inners:
+    get:
+      parameters:
+        - name: in_1
+          in: query
+          schema:
+            $ref: '#/components/schemas/InnerMap'
+        - name: in_2
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/InnerMap'
+        - name: in_3
+          in: query
+          schema:
+            $ref: '#/components/schemas/InnerStruct'
+        - name: in_4
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/InnerStruct'
+      responses:
+        '200':
+          description: OK
+  /testFromData:
+    post:
+      parameters:
+        - name: in_1
+          in: query
+          schema:
+            type: string
+        - name: in_2
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - id
+                - name
+              properties:
+                id:
+                  type: integer
+                  description: Skip this parameter to create new author
+                name:
+                  type: string
+                url:
+                  type: string
+                avatar_image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: OK
 components:
   schemas:
+    InnerMap:
+      type: object
+      additionalProperties: true
+    InnerStruct:
+      type: object
+      properties:
+        x:
+          type: string
+        y:
+          type: string
+    Outer:
+      type: object
+      required:
+        - inner1
+        - inner3
+      properties:
+        inner1:
+          $ref: '#/components/schemas/InnerMap'
+        inner2:
+          $ref: '#/components/schemas/InnerMap'
+        inner3:
+          $ref: '#/components/schemas/InnerStruct'
+        inner4:
+          $ref: '#/components/schemas/InnerStruct'
+        z:
+          type: string
     Pet:
       type: object
       required:
