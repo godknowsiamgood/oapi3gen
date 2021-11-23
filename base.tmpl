@@ -89,7 +89,11 @@ import (
                     {{ template "properties" . }}
                 }
             {{- else -}}
-                {{ .GetGoType }}
+                {{- if .Type.IsArray -}}
+                    []{{ template "schemaType" .Items }}
+                {{- else -}}
+                    {{ .GetGoType }}
+                {{- end -}}
             {{- end -}}
         {{- end -}}
     {{ end -}}

@@ -254,6 +254,35 @@ paths:
       responses:
         '200':
           description: OK
+
+  '/array1':
+    get:
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    key:
+                      type: string
+                    text:
+                      type: string
+
+  '/array2':
+    get:
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
 components:
   schemas:
     InnerMap:

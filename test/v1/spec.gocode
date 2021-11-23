@@ -53,6 +53,12 @@ type PutAaaParams struct {
 	Test *int64
 }
 
+type GetArray1Params struct {
+}
+
+type GetArray2Params struct {
+}
+
 type PostBbbParams struct {
 }
 
@@ -122,6 +128,19 @@ type PostTestFromDataBody struct {
 
 /* Responses */
 
+type GetArray1Response struct {
+	Code    int
+	Http200 []struct {
+		Key  string `json:"key,omitempty"`
+		Text string `json:"text,omitempty"`
+	}
+}
+
+type GetArray2Response struct {
+	Code    int
+	Http200 []PetSchema
+}
+
 type ListPetsResponse struct {
 	Code        int
 	Http200     PetsSchema
@@ -144,6 +163,8 @@ type Controller interface {
 	GetAaa(params *GetAaaParams, req *http.Request, res http.ResponseWriter) int
 	PostAaa(params *PostAaaParams, body *PostAaaBody, req *http.Request, res http.ResponseWriter) int
 	PutAaa(params *PutAaaParams, body *PutAaaBody, req *http.Request, res http.ResponseWriter) int
+	GetArray1(params *GetArray1Params, req *http.Request, res http.ResponseWriter) GetArray1Response
+	GetArray2(params *GetArray2Params, req *http.Request, res http.ResponseWriter) GetArray2Response
 	PostBbb(params *PostBbbParams, body *PostBbbBody, req *http.Request, res http.ResponseWriter) int
 	PostBody1(params *PostBody1Params, body *PostBody1Body, req *http.Request, res http.ResponseWriter) int
 	PostBody2(params *PostBody2Params, body *PostBody2Body, req *http.Request, res http.ResponseWriter) int
