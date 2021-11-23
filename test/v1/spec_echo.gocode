@@ -109,13 +109,13 @@ type PostBody2Body map[string]interface{}
 type PostBody3Body map[string]interface{}
 
 type PostBody4Body struct {
-	A string `form:"a"`
+	A *string `form:"a"`
 }
 
 type PostTestFromDataBody struct {
-	Id   int64  `form:"id"`
-	Name string `form:"name"`
-	Url  string `form:"url"`
+	Id   int64   `form:"id"`
+	Name string  `form:"name"`
+	Url  *string `form:"url"`
 }
 
 /* Response objects */

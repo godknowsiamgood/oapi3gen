@@ -27,7 +27,7 @@ func (s DefaultServer) FieldTags(context string, name string, field spec.Schema,
 
 	tags.WriteString("`json:\"" + name)
 
-	if parent.IsFieldOptional(name) {
+	if parent.IsFieldOptional(name) && context != spec.PropertiesContextParameters && context != spec.PropertiesContextRequestBody {
 		tags.WriteString(",omitempty")
 	}
 

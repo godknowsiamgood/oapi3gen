@@ -54,7 +54,7 @@ import (
             {{- if isStruct $schema -}}
             * {{/* optional struct is always with pointer */}}
             {{- else }}
-                {{- if eq getContext "parameters" }}
+                {{- if or (eq getContext "parameters") (eq getContext "requestBody") }}
                     {{- template "pointerForOmmitableSchema" $schema }}
                 {{- end }}
             {{- end }}

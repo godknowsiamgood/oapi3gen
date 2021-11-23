@@ -109,13 +109,13 @@ type PostBody2Body map[string]interface{}
 type PostBody3Body map[string]interface{}
 
 type PostBody4Body struct {
-	A string `json:"a,omitempty"`
+	A *string `json:"a"`
 }
 
 type PostTestFromDataBody struct {
-	Id   int64  `json:"id"`
-	Name string `json:"name"`
-	Url  string `json:"url,omitempty"`
+	Id   int64   `json:"id"`
+	Name string  `json:"name"`
+	Url  *string `json:"url"`
 }
 
 /* Response objects */
