@@ -1,12 +1,4 @@
 
-{{- define "controllerErrorResponse" -}}
-{{ if hasGenericErrorResponse -}}
-c.JSON({{.}}, controller.Error(err))
-{{- else -}}
-c.String({{.}}, err.Error())
-{{- end }}
-{{- end -}}
-
 {{ define "serverBoilerplate" }}
 
 var validate *validator.Validate
@@ -39,33 +31,33 @@ func validateInputParameters(params interface{}) error {
 
 var defaultBinder = &echo.DefaultBinder{}
 
-func initParameters(c echo.Context, parameters interface{}, body interface{}, controller Controller) error {
+func initParameters(c echo.Context, parameters interface{}, body interface{}, controller Controller) (int, error) {
     if body != nil {
         if err := defaultBinder.BindBody(c, body); err != nil {
-            return {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
+            return http.StatusBadRequest, err
         }
     }
 
     if parameters != nil {
         if err := defaultBinder.BindPathParams(c, parameters); err != nil {
-            return {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
+            return http.StatusBadRequest, err
         }
         if err := defaultBinder.BindQueryParams(c, parameters); err != nil {
-            return {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
+            return http.StatusBadRequest, err
         }
         if err := defaultBinder.BindHeaders(c, parameters); err != nil {
-            return {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
+            return http.StatusBadRequest, err
         }
 
         if err := defaults.Set(parameters); err != nil {
-            return {{ template "controllerErrorResponse" "http.StatusInternalServerError" }}
+            return http.StatusInternalServerError, err
         }
         if err := validateInputParameters(parameters); err != nil {
-            return {{ template "controllerErrorResponse" "http.StatusBadRequest" }}
+            return http.StatusBadRequest, err
         }
     }
 
-    return nil
+    return 0, nil
 }
 
 func BuildRoutes(e *echo.Group, controller Controller
@@ -87,10 +79,14 @@ func BuildRoutes(e *echo.Group, controller Controller
             parameters := &{{ $methodName }}Params{}
         {{- end }}
 
-        if err := initParameters(c,
+        if status, err := initParameters(c,
             {{- if $hasParameters }}parameters{{ else }}nil{{ end }},
             {{- if $operation.HasRequestBodyBindableParameters -}}body{{ else }}nil{{ end }}, controller); err != nil {
-            return err
+            {{ if hasGenericErrorResponse -}}
+                return c.JSON(status, controller.Error(err))
+            {{- else -}}
+                return c.String(status, err.Error())
+            {{- end }}
         }
 
         {{ if hasGenericErrorResponse -}}
