@@ -5,13 +5,7 @@ package v1
 **/
 
 import (
-	"fmt"
-	"github.com/creasty/defaults"
-	"github.com/go-playground/validator/v10"
-	"github.com/labstack/echo/v4"
 	"net/http"
-	"reflect"
-	"strings"
 )
 
 /* Components schemas */
@@ -184,40 +178,40 @@ func validateInputParameters(params interface{}) error {
 
 var defaultBinder = &echo.DefaultBinder{}
 
-func initParameters(c echo.Context, parameters interface{}, body interface{}, controller Controller) error {
+func initParameters(c echo.Context, parameters interface{}, body interface{}, controller Controller) (int, error) {
 	if body != nil {
 		if err := defaultBinder.BindBody(c, body); err != nil {
-			return c.String(http.StatusBadRequest, err.Error())
+			return http.StatusBadRequest, err
 		}
 	}
 
 	if parameters != nil {
 		if err := defaultBinder.BindPathParams(c, parameters); err != nil {
-			return c.String(http.StatusBadRequest, err.Error())
+			return http.StatusBadRequest, err
 		}
 		if err := defaultBinder.BindQueryParams(c, parameters); err != nil {
-			return c.String(http.StatusBadRequest, err.Error())
+			return http.StatusBadRequest, err
 		}
 		if err := defaultBinder.BindHeaders(c, parameters); err != nil {
-			return c.String(http.StatusBadRequest, err.Error())
+			return http.StatusBadRequest, err
 		}
 
 		if err := defaults.Set(parameters); err != nil {
-			return c.String(http.StatusInternalServerError, err.Error())
+			return http.StatusInternalServerError, err
 		}
 		if err := validateInputParameters(parameters); err != nil {
-			return c.String(http.StatusBadRequest, err.Error())
+			return http.StatusBadRequest, err
 		}
 	}
 
-	return nil
+	return 0, nil
 }
 
 func BuildRoutes(e *echo.Group, controller Controller) {
 	e.GET("/aaa", func(c echo.Context) error {
 
-		if err := initParameters(c, nil, nil, controller); err != nil {
-			return err
+		if status, err := initParameters(c, nil, nil, controller); err != nil {
+			return c.String(status, err.Error())
 		}
 
 		response := controller.GetAaa(c.Request(), c.Response().Writer)
@@ -229,8 +223,8 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 		body := &PostAaaBody{}
 		parameters := &PostAaaParams{}
 
-		if err := initParameters(c, parameters, body, controller); err != nil {
-			return err
+		if status, err := initParameters(c, parameters, body, controller); err != nil {
+			return c.String(status, err.Error())
 		}
 
 		response := controller.PostAaa(parameters, body, c.Request(), c.Response().Writer)
@@ -242,8 +236,8 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 		body := &PutAaaBody{}
 		parameters := &PutAaaParams{}
 
-		if err := initParameters(c, parameters, body, controller); err != nil {
-			return err
+		if status, err := initParameters(c, parameters, body, controller); err != nil {
+			return c.String(status, err.Error())
 		}
 
 		response := controller.PutAaa(parameters, body, c.Request(), c.Response().Writer)
@@ -253,8 +247,8 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 
 	e.GET("/array1", func(c echo.Context) error {
 
-		if err := initParameters(c, nil, nil, controller); err != nil {
-			return err
+		if status, err := initParameters(c, nil, nil, controller); err != nil {
+			return c.String(status, err.Error())
 		}
 
 		response := controller.GetArray1(c.Request(), c.Response().Writer)
@@ -271,8 +265,8 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 
 	e.GET("/array2", func(c echo.Context) error {
 
-		if err := initParameters(c, nil, nil, controller); err != nil {
-			return err
+		if status, err := initParameters(c, nil, nil, controller); err != nil {
+			return c.String(status, err.Error())
 		}
 
 		response := controller.GetArray2(c.Request(), c.Response().Writer)
@@ -290,8 +284,8 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	e.POST("/bbb", func(c echo.Context) error {
 		body := &PostBbbBody{}
 
-		if err := initParameters(c, nil, body, controller); err != nil {
-			return err
+		if status, err := initParameters(c, nil, body, controller); err != nil {
+			return c.String(status, err.Error())
 		}
 
 		response := controller.PostBbb(body, c.Request(), c.Response().Writer)
@@ -302,8 +296,8 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	e.POST("/body1", func(c echo.Context) error {
 		body := &PostBody1Body{}
 
-		if err := initParameters(c, nil, body, controller); err != nil {
-			return err
+		if status, err := initParameters(c, nil, body, controller); err != nil {
+			return c.String(status, err.Error())
 		}
 
 		response := controller.PostBody1(body, c.Request(), c.Response().Writer)
@@ -314,8 +308,8 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	e.POST("/body2", func(c echo.Context) error {
 		body := &PostBody2Body{}
 
-		if err := initParameters(c, nil, body, controller); err != nil {
-			return err
+		if status, err := initParameters(c, nil, body, controller); err != nil {
+			return c.String(status, err.Error())
 		}
 
 		response := controller.PostBody2(body, c.Request(), c.Response().Writer)
@@ -326,8 +320,8 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	e.POST("/body3", func(c echo.Context) error {
 		body := &PostBody3Body{}
 
-		if err := initParameters(c, nil, body, controller); err != nil {
-			return err
+		if status, err := initParameters(c, nil, body, controller); err != nil {
+			return c.String(status, err.Error())
 		}
 
 		response := controller.PostBody3(body, c.Request(), c.Response().Writer)
@@ -338,8 +332,8 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	e.POST("/body4", func(c echo.Context) error {
 		body := &PostBody4Body{}
 
-		if err := initParameters(c, nil, body, controller); err != nil {
-			return err
+		if status, err := initParameters(c, nil, body, controller); err != nil {
+			return c.String(status, err.Error())
 		}
 
 		response := controller.PostBody4(body, c.Request(), c.Response().Writer)
@@ -349,8 +343,8 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 
 	e.POST("/ccc", func(c echo.Context) error {
 
-		if err := initParameters(c, nil, nil, controller); err != nil {
-			return err
+		if status, err := initParameters(c, nil, nil, controller); err != nil {
+			return c.String(status, err.Error())
 		}
 
 		response := controller.PostCcc(c.Request(), c.Response().Writer)
@@ -361,8 +355,8 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	e.GET("/pets", func(c echo.Context) error {
 		parameters := &ListPetsParams{}
 
-		if err := initParameters(c, parameters, nil, controller); err != nil {
-			return err
+		if status, err := initParameters(c, parameters, nil, controller); err != nil {
+			return c.String(status, err.Error())
 		}
 
 		response := controller.ListPets(parameters, c.Request(), c.Response().Writer)
@@ -385,8 +379,8 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 
 	e.POST("/pets", func(c echo.Context) error {
 
-		if err := initParameters(c, nil, nil, controller); err != nil {
-			return err
+		if status, err := initParameters(c, nil, nil, controller); err != nil {
+			return c.String(status, err.Error())
 		}
 
 		response := controller.CreatePets(c.Request(), c.Response().Writer)
@@ -404,8 +398,8 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	e.GET("/pets/:petId", func(c echo.Context) error {
 		parameters := &ShowPetByIdParams{}
 
-		if err := initParameters(c, parameters, nil, controller); err != nil {
-			return err
+		if status, err := initParameters(c, parameters, nil, controller); err != nil {
+			return c.String(status, err.Error())
 		}
 
 		response := controller.ShowPetById(parameters, c.Request(), c.Response().Writer)
@@ -430,8 +424,8 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 		body := &PostTestFromDataBody{}
 		parameters := &PostTestFromDataParams{}
 
-		if err := initParameters(c, parameters, body, controller); err != nil {
-			return err
+		if status, err := initParameters(c, parameters, body, controller); err != nil {
+			return c.String(status, err.Error())
 		}
 
 		response := controller.PostTestFromData(parameters, body, c.Request(), c.Response().Writer)
@@ -442,8 +436,8 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	e.GET("/test_inners", func(c echo.Context) error {
 		parameters := &GetTestInnersParams{}
 
-		if err := initParameters(c, parameters, nil, controller); err != nil {
-			return err
+		if status, err := initParameters(c, parameters, nil, controller); err != nil {
+			return c.String(status, err.Error())
 		}
 
 		response := controller.GetTestInners(parameters, c.Request(), c.Response().Writer)
