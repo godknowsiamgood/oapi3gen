@@ -49,6 +49,8 @@ func (s *Server) FieldTags(context string, name string, field spec.Schema, paren
 		tags = append(tags, "form:\""+name+"\"")
 	}
 
+	tags = append(tags, getTagsForInputSchema(field, !parent.IsFieldOptional(name))...)
+
 	if len(tags) == 0 {
 		return ""
 	}
@@ -67,17 +69,29 @@ func (s *Server) OperationParameterTags(param spec.Parameter) string {
 		tags = append(tags, "query:\""+param.Name+"\"")
 	}
 
+	tags = append(tags, getTagsForInputSchema(param.Schema, param.Required)...)
+
+	if len(tags) == 0 {
+		return ""
+	}
+
+	return "`" + strings.Join(tags, " ") + "`"
+}
+
+func getTagsForInputSchema(schema spec.Schema, isRequired bool) []string {
+	var tags []string
+
 	// defaults
-	if param.Schema.Default != nil {
-		tags = append(tags, fmt.Sprintf("default:\"%v\"", *param.Schema.Default))
+	if schema.Default != nil {
+		tags = append(tags, fmt.Sprintf("default:\"%v\"", *schema.Default))
 	}
 
 	// validation
 	var validations []string
-	if param.Required {
+	if isRequired {
 		validations = append(validations, "required")
 	}
-	schema := param.Schema
+
 	if len(schema.Enum) > 0 {
 		validations = append(validations, "oneof="+strings.Join(schema.Enum, " "))
 	}
@@ -97,9 +111,5 @@ func (s *Server) OperationParameterTags(param spec.Parameter) string {
 		tags = append(tags, "validate:\""+strings.Join(validations, ",")+"\"")
 	}
 
-	if len(tags) == 0 {
-		return ""
-	}
-
-	return "`" + strings.Join(tags, " ") + "`"
+	return tags
 }

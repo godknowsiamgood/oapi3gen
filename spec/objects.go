@@ -1,7 +1,6 @@
 package spec
 
 import (
-	"fmt"
 	"github.com/Masterminds/semver"
 	"github.com/iancoleman/strcase"
 	"regexp"
@@ -92,10 +91,6 @@ func (p Parameter) IsRequired() bool {
 	return p.Required || p.In == "path"
 }
 
-func (p Parameter) HasDefault() bool {
-	return p.Schema.Default != nil
-}
-
 type Schema struct {
 	AllOf []Schema `yaml:"allOf"`
 
@@ -115,37 +110,10 @@ type Schema struct {
 	AdditionalProperties interface{}       `yaml:"additionalProperties"`
 }
 
-func (s Schema) GetDefaultsTags() string {
-	if s.Default == nil {
-		return ""
-	}
-
-	return fmt.Sprintf("default:\"%v\"", *s.Default)
+func (s Schema) HasDefault() bool {
+	return s.Default != nil
 }
 
-func (s Schema) GetValidationTags(isRequired bool) string {
-	var tags []string
-
-	if isRequired {
-		tags = append(tags, "required")
-	}
-	if len(s.Enum) > 0 {
-		tags = append(tags, "oneof="+strings.Join(s.Enum, " "))
-	}
-	if s.Minimum != nil {
-		tags = append(tags, "min="+strconv.Itoa(*s.Minimum))
-	}
-	if s.Maximum != nil {
-		tags = append(tags, "max="+strconv.Itoa(*s.Maximum))
-	}
-	if s.MinimumLength != nil {
-		tags = append(tags, "min="+strconv.Itoa(*s.MinimumLength))
-	}
-	if s.MaximumLength != nil {
-		tags = append(tags, "max="+strconv.Itoa(*s.MaximumLength))
-	}
-	return strings.Join(tags, ",")
-}
 func (s Schema) ExpandAllOf() {
 	if len(s.AllOf) == 0 {
 		return
@@ -164,32 +132,6 @@ func (s Schema) ExpandAllOf() {
 	}
 }
 
-func (s Schema) GetSerializedEnums(asStrings bool) string {
-	if len(s.Enum) > 0 {
-		b := strings.Builder{}
-		if asStrings {
-			b.WriteString("[]string{")
-		} else {
-			b.WriteString("[]int64{")
-		}
-
-		for _, e := range s.Enum {
-			if asStrings {
-				b.WriteString("\"")
-			}
-			b.WriteString(e)
-			if asStrings {
-				b.WriteString("\"")
-			}
-			b.WriteString(",")
-		}
-		b.WriteString("}")
-		return b.String()
-	} else {
-		return "nil"
-	}
-}
-
 func (s Schema) IsFieldOptional(fieldName string) bool {
 	for _, r := range s.Required {
 		if fieldName == r {
@@ -201,17 +143,6 @@ func (s Schema) IsFieldOptional(fieldName string) bool {
 
 func (s Schema) IsSet() bool {
 	return s.Ref.IsSet() || len(s.AllOf) > 0 || s.Type != ""
-}
-func (s Schema) GetDefault() string {
-	if s.Default == nil {
-		return "nil"
-	} else {
-		if s.IsNumeric() {
-			return "intPointer(" + (*s.Default) + ")"
-		} else {
-			return "stringPointer(\"" + (*s.Default) + "\")"
-		}
-	}
 }
 func (s Schema) GetMinimum() string {
 	if !s.IsNumeric() || s.Minimum == nil {

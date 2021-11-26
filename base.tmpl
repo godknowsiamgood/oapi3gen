@@ -40,11 +40,6 @@ import (
 {{ if not (isNillableSchema (getUnderlyingSchema .)) }}*{{ end }}
 {{- end -}}
 
-{{- define "defaults" -}}
-{{- $tags := .GetDefaultsTags -}}
-{{- if $tags }} {{ $tags }}{{ end -}}
-{{- end -}}
-
 {{ define "properties" }}
 {{- $parentSchema := . -}}
 {{ range $name, $schema := .Properties -}}
@@ -55,7 +50,9 @@ import (
             * {{/* optional struct is always with pointer */}}
             {{- else }}
                 {{- if or (eq getContext "parameters") (eq getContext "requestBody") }}
+                    {{- if not $schema.HasDefault }}
                     {{- template "pointerForOmmitableSchema" $schema }}
+                    {{- end }}
                 {{- end }}
             {{- end }}
         {{- end }}
@@ -120,7 +117,7 @@ type {{ $name }}Response {{ template "refOrSchema" dict "Ref" $response.Ref "Sch
 {{ if len $operation.Parameters }}
 type {{ operationId $path $method $operation }}Params struct {
     {{ range $operation.Parameters -}}
-    {{ toCamel .Name }} {{ if and (not .IsRequired) (not .HasDefault) }}{{ template "pointerForSchema" .Schema }}{{ end }}{{ template "schemaType" .Schema }} {{ server.OperationParameterTags . }}
+    {{ toCamel .Name }} {{ if and (not .IsRequired) (not .Schema.HasDefault) }}{{ template "pointerForSchema" .Schema }}{{ end }}{{ template "schemaType" .Schema }} {{ server.OperationParameterTags . }}
     {{ end }}
 }
 {{ end }}

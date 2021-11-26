@@ -63,6 +63,11 @@ type PostTestFromDataParams struct {
 	In2 string
 }
 
+type PostTestDefaultParams struct {
+	Q1 int64
+	Q2 *int64
+}
+
 type GetTestInnersParams struct {
 	In1 InnerMapSchema
 	In2 InnerMapSchema
@@ -92,6 +97,11 @@ type PostTestFromDataBody struct {
 	Id   int64   `json:"id"`
 	Name string  `json:"name"`
 	Url  *string `json:"url"`
+}
+
+type PostTestDefaultBody struct {
+	B1 int64  `json:"b1"`
+	B2 *int64 `json:"b2"`
 }
 
 /* Response objects */
@@ -145,5 +155,6 @@ type Controller interface {
 	CreatePets(req *http.Request, res http.ResponseWriter) CreatePetsResponse
 	ShowPetById(params *ShowPetByIdParams, req *http.Request, res http.ResponseWriter) ShowPetByIdResponse
 	PostTestFromData(params *PostTestFromDataParams, body *PostTestFromDataBody, req *http.Request, res http.ResponseWriter) int
+	PostTestDefault(params *PostTestDefaultParams, body *PostTestDefaultBody, req *http.Request, res http.ResponseWriter) int
 	GetTestInners(params *GetTestInnersParams, req *http.Request, res http.ResponseWriter) int
 }

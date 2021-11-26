@@ -7,6 +7,35 @@ info:
 servers:
   - url: http://petstore.swagger.io/v1
 paths:
+  /test_default:
+    post:
+      parameters:
+        - name: q1
+          schema:
+            type: integer
+            default: 20
+          in: query
+        - name: q2
+          schema:
+            type: integer
+          in: query
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                b1:
+                  type: integer
+                  default: 10
+                  minimum: 0
+                  maximum: 100
+                b2:
+                  type: integer
+      responses:
+        '200':
+          description: OK
   /body1:
     post:
       requestBody:
