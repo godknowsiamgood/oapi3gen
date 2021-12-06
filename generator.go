@@ -9,12 +9,22 @@ import (
 	"github.com/godknowsiamgood/oapi3gen/echo"
 	"github.com/godknowsiamgood/oapi3gen/spec"
 	"github.com/iancoleman/strcase"
-	"go/format"
+	"golang.org/x/tools/imports"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strings"
 	"text/template"
 )
+
+var (
+	r    = regexp.MustCompile(`\n(\n+)`)
+	repl = []byte("\n")
+)
+
+func preprocess(b string) string {
+	return string(r.ReplaceAll([]byte(b), repl))
+}
 
 func generate(yamlContent []byte, serverName string) ([]byte, error) {
 	if isVerbose {
@@ -69,8 +79,10 @@ func generate(yamlContent []byte, serverName string) ([]byte, error) {
 		}
 	}
 
-	baseTemplateContent = strings.Replace(baseTemplateContent, "%server%", serverTmplReplace, 1)
-	baseTemplateContent = strings.Replace(baseTemplateContent, "%boilerplate%", serverBoilerplateReplace, 1)
+	baseTemplateContent = strings.Replace(baseTemplateContent, "{{/*server*/}}", serverTmplReplace, 1) //
+	baseTemplateContent = strings.Replace(baseTemplateContent, "{{/*boilerplate*/}}", serverBoilerplateReplace, 1)
+
+	var addedImports []string
 
 	objectsContext := "default"
 
@@ -90,6 +102,10 @@ func generate(yamlContent []byte, serverName string) ([]byte, error) {
 			objectsContext = c
 			return ""
 		},
+		"addImport": func(imp string) string {
+			addedImports = append(addedImports, imp)
+			return ""
+		},
 	}
 
 	serverTemplateFunctions := server.TemplateFunctions()
@@ -101,7 +117,7 @@ func generate(yamlContent []byte, serverName string) ([]byte, error) {
 		log("Parsing templates...")
 	}
 
-	t, err := template.New("echo.tmpl").Funcs(templateFunctions).Parse(baseTemplateContent)
+	t, err := template.New("base.tmpl").Funcs(templateFunctions).Parse(baseTemplateContent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile template: %v", err)
 	}
@@ -116,15 +132,26 @@ func generate(yamlContent []byte, serverName string) ([]byte, error) {
 		return nil, fmt.Errorf("code generation failed: %v", err)
 	}
 
+	sourceRaw := sb.Bytes()
+	sourceRaw = renderImports(sourceRaw, addedImports)
+
 	var formattedSource []byte
 	if os.Getenv("debug") == "" {
-		formattedSource, err = format.Source(sb.Bytes())
+		formattedSource, err = imports.Process("", sourceRaw, nil)
 		if err != nil {
 			return nil, fmt.Errorf("code formatting failed: %v", err)
 		}
 	} else {
-		formattedSource = sb.Bytes()
+		formattedSource = sourceRaw
 	}
 
 	return formattedSource, nil
+}
+
+func renderImports(sourceRaw []byte, imports []string) []byte {
+	importsStr := strings.Builder{}
+	for _, i := range imports {
+		importsStr.WriteString("import \"" + i + "\"\n")
+	}
+	return []byte(strings.Replace(string(sourceRaw), "/*imports*/", importsStr.String(), 1))
 }

@@ -47,9 +47,8 @@ func (s *Server) FieldTags(context string, name string, field spec.Schema, paren
 		tags = append(tags, "json:\""+name+omitempty+"\"")
 	} else if context == spec.PropertiesContextRequestBody {
 		tags = append(tags, "form:\""+name+"\"")
+		tags = append(tags, getValidationAndDefaultTagsForInputSchema(field, !parent.IsFieldOptional(name))...)
 	}
-
-	tags = append(tags, getTagsForInputSchema(field, !parent.IsFieldOptional(name))...)
 
 	if len(tags) == 0 {
 		return ""
@@ -69,7 +68,7 @@ func (s *Server) OperationParameterTags(param spec.Parameter) string {
 		tags = append(tags, "query:\""+param.Name+"\"")
 	}
 
-	tags = append(tags, getTagsForInputSchema(param.Schema, param.Required)...)
+	tags = append(tags, getValidationAndDefaultTagsForInputSchema(param.Schema, param.Required)...)
 
 	if len(tags) == 0 {
 		return ""
@@ -78,7 +77,7 @@ func (s *Server) OperationParameterTags(param spec.Parameter) string {
 	return "`" + strings.Join(tags, " ") + "`"
 }
 
-func getTagsForInputSchema(schema spec.Schema, isRequired bool) []string {
+func getValidationAndDefaultTagsForInputSchema(schema spec.Schema, isRequired bool) []string {
 	var tags []string
 
 	// defaults

@@ -5,14 +5,21 @@ package v1
 **/
 
 import (
+	"fmt"
 	"net/http"
+	"reflect"
+	"strings"
+
+	"github.com/creasty/defaults"
+	"github.com/go-playground/validator/v10"
+	"github.com/labstack/echo/v4"
 )
 
 /* Components schemas */
 
 type ErrorSchema struct {
-	Code    int32  `json:"code" validate:"required"`
-	Message string `json:"message" validate:"required"`
+	Code    int32  `json:"code"`
+	Message string `json:"message"`
 }
 
 type InnerMapSchema map[string]interface{}
@@ -23,16 +30,16 @@ type InnerStructSchema struct {
 }
 
 type OuterSchema struct {
-	Inner1 InnerMapSchema     `json:"inner1" validate:"required"`
+	Inner1 InnerMapSchema     `json:"inner1"`
 	Inner2 InnerMapSchema     `json:"inner2,omitempty"`
-	Inner3 InnerStructSchema  `json:"inner3" validate:"required"`
+	Inner3 InnerStructSchema  `json:"inner3"`
 	Inner4 *InnerStructSchema `json:"inner4,omitempty"`
 	Z      string             `json:"z,omitempty"`
 }
 
 type PetSchema struct {
-	Id   int64  `json:"id" validate:"required"`
-	Name string `json:"name" validate:"required"`
+	Id   int64  `json:"id"`
+	Name string `json:"name"`
 	Tag  string `json:"tag,omitempty"`
 }
 
@@ -162,6 +169,7 @@ type Controller interface {
 var validate *validator.Validate
 
 func validateInputParameters(params interface{}) error {
+
 	if params == nil {
 		return nil
 	}
@@ -180,6 +188,7 @@ func validateInputParameters(params interface{}) error {
 	err := validate.Struct(params)
 	if validationErrors, ok := err.(validator.ValidationErrors); ok {
 		for _, e := range validationErrors {
+
 			return fmt.Errorf("validation error: parameter '%s' (%v), rule: %s \n", e.Field(), e.Value(), e.Tag())
 		}
 	}
@@ -189,9 +198,17 @@ func validateInputParameters(params interface{}) error {
 
 var defaultBinder = &echo.DefaultBinder{}
 
-func initParameters(c echo.Context, parameters interface{}, body interface{}, controller Controller) (int, error) {
+func initParameters(c echo.Context, parameters interface{}, body interface{}) (int, error) {
+
 	if body != nil {
 		if err := defaultBinder.BindBody(c, body); err != nil {
+			return http.StatusBadRequest, err
+		}
+
+		if err := defaults.Set(body); err != nil {
+			return http.StatusInternalServerError, err
+		}
+		if err := validateInputParameters(body); err != nil {
 			return http.StatusBadRequest, err
 		}
 	}
@@ -219,9 +236,10 @@ func initParameters(c echo.Context, parameters interface{}, body interface{}, co
 }
 
 func BuildRoutes(e *echo.Group, controller Controller) {
+
 	e.GET("/aaa", func(c echo.Context) error {
 
-		if status, err := initParameters(c, nil, nil, controller); err != nil {
+		if status, err := initParameters(c, nil, nil); err != nil {
 			return c.String(status, err.Error())
 		}
 
@@ -234,7 +252,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 		body := &PostAaaBody{}
 		parameters := &PostAaaParams{}
 
-		if status, err := initParameters(c, parameters, body, controller); err != nil {
+		if status, err := initParameters(c, parameters, body); err != nil {
 			return c.String(status, err.Error())
 		}
 
@@ -247,7 +265,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 		body := &PutAaaBody{}
 		parameters := &PutAaaParams{}
 
-		if status, err := initParameters(c, parameters, body, controller); err != nil {
+		if status, err := initParameters(c, parameters, body); err != nil {
 			return c.String(status, err.Error())
 		}
 
@@ -258,7 +276,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 
 	e.GET("/array1", func(c echo.Context) error {
 
-		if status, err := initParameters(c, nil, nil, controller); err != nil {
+		if status, err := initParameters(c, nil, nil); err != nil {
 			return c.String(status, err.Error())
 		}
 
@@ -276,7 +294,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 
 	e.GET("/array2", func(c echo.Context) error {
 
-		if status, err := initParameters(c, nil, nil, controller); err != nil {
+		if status, err := initParameters(c, nil, nil); err != nil {
 			return c.String(status, err.Error())
 		}
 
@@ -295,7 +313,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	e.POST("/bbb", func(c echo.Context) error {
 		body := &PostBbbBody{}
 
-		if status, err := initParameters(c, nil, body, controller); err != nil {
+		if status, err := initParameters(c, nil, body); err != nil {
 			return c.String(status, err.Error())
 		}
 
@@ -307,7 +325,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	e.POST("/body1", func(c echo.Context) error {
 		body := &PostBody1Body{}
 
-		if status, err := initParameters(c, nil, body, controller); err != nil {
+		if status, err := initParameters(c, nil, body); err != nil {
 			return c.String(status, err.Error())
 		}
 
@@ -319,7 +337,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	e.POST("/body2", func(c echo.Context) error {
 		body := &PostBody2Body{}
 
-		if status, err := initParameters(c, nil, body, controller); err != nil {
+		if status, err := initParameters(c, nil, body); err != nil {
 			return c.String(status, err.Error())
 		}
 
@@ -331,7 +349,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	e.POST("/body3", func(c echo.Context) error {
 		body := &PostBody3Body{}
 
-		if status, err := initParameters(c, nil, body, controller); err != nil {
+		if status, err := initParameters(c, nil, body); err != nil {
 			return c.String(status, err.Error())
 		}
 
@@ -343,7 +361,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	e.POST("/body4", func(c echo.Context) error {
 		body := &PostBody4Body{}
 
-		if status, err := initParameters(c, nil, body, controller); err != nil {
+		if status, err := initParameters(c, nil, body); err != nil {
 			return c.String(status, err.Error())
 		}
 
@@ -354,7 +372,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 
 	e.POST("/ccc", func(c echo.Context) error {
 
-		if status, err := initParameters(c, nil, nil, controller); err != nil {
+		if status, err := initParameters(c, nil, nil); err != nil {
 			return c.String(status, err.Error())
 		}
 
@@ -364,9 +382,10 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	})
 
 	e.GET("/pets", func(c echo.Context) error {
+
 		parameters := &ListPetsParams{}
 
-		if status, err := initParameters(c, parameters, nil, controller); err != nil {
+		if status, err := initParameters(c, parameters, nil); err != nil {
 			return c.String(status, err.Error())
 		}
 
@@ -390,7 +409,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 
 	e.POST("/pets", func(c echo.Context) error {
 
-		if status, err := initParameters(c, nil, nil, controller); err != nil {
+		if status, err := initParameters(c, nil, nil); err != nil {
 			return c.String(status, err.Error())
 		}
 
@@ -407,9 +426,10 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	})
 
 	e.GET("/pets/:petId", func(c echo.Context) error {
+
 		parameters := &ShowPetByIdParams{}
 
-		if status, err := initParameters(c, parameters, nil, controller); err != nil {
+		if status, err := initParameters(c, parameters, nil); err != nil {
 			return c.String(status, err.Error())
 		}
 
@@ -435,7 +455,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 		body := &PostTestFromDataBody{}
 		parameters := &PostTestFromDataParams{}
 
-		if status, err := initParameters(c, parameters, body, controller); err != nil {
+		if status, err := initParameters(c, parameters, body); err != nil {
 			return c.String(status, err.Error())
 		}
 
@@ -448,7 +468,7 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 		body := &PostTestDefaultBody{}
 		parameters := &PostTestDefaultParams{}
 
-		if status, err := initParameters(c, parameters, body, controller); err != nil {
+		if status, err := initParameters(c, parameters, body); err != nil {
 			return c.String(status, err.Error())
 		}
 
@@ -458,9 +478,10 @@ func BuildRoutes(e *echo.Group, controller Controller) {
 	})
 
 	e.GET("/test_inners", func(c echo.Context) error {
+
 		parameters := &GetTestInnersParams{}
 
-		if status, err := initParameters(c, parameters, nil, controller); err != nil {
+		if status, err := initParameters(c, parameters, nil); err != nil {
 			return c.String(status, err.Error())
 		}
 

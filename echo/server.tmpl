@@ -4,6 +4,9 @@
 var validate *validator.Validate
 
 func validateInputParameters(params interface{}) error {
+    {{ addImport "reflect" }}
+    {{ addImport "strings" }}
+
     if params == nil {
         return nil
     }
@@ -22,6 +25,7 @@ func validateInputParameters(params interface{}) error {
     err := validate.Struct(params)
     if validationErrors, ok := err.(validator.ValidationErrors); ok {
         for _, e := range validationErrors {
+            {{ addImport "fmt" }}
             return fmt.Errorf("validation error: parameter '%s' (%v), rule: %s \n", e.Field(), e.Value(), e.Tag())
         }
     }
@@ -31,9 +35,19 @@ func validateInputParameters(params interface{}) error {
 
 var defaultBinder = &echo.DefaultBinder{}
 
-func initParameters(c echo.Context, parameters interface{}, body interface{}, controller Controller) (int, error) {
+func initParameters(c echo.Context, parameters interface{}, body interface{}) (int, error) {
+    {{ addImport "github.com/creasty/defaults" }}
+    {{ addImport "github.com/go-playground/validator/v10" }}
+
     if body != nil {
         if err := defaultBinder.BindBody(c, body); err != nil {
+            return http.StatusBadRequest, err
+        }
+
+        if err := defaults.Set(body); err != nil {
+            return http.StatusInternalServerError, err
+        }
+        if err := validateInputParameters(body); err != nil {
             return http.StatusBadRequest, err
         }
     }
@@ -60,6 +74,9 @@ func initParameters(c echo.Context, parameters interface{}, body interface{}, co
     return 0, nil
 }
 
+{{ addImport "github.com/labstack/echo/v4" }}
+{{ addImport "net/http" }}
+
 func BuildRoutes(e *echo.Group, controller Controller
 {{- if .GetAllMiddlewareNames -}}
 {{ range .GetAllMiddlewareNames }}, {{ toLowerCamel . }} echo.MiddlewareFunc{{ end }}
@@ -68,20 +85,21 @@ func BuildRoutes(e *echo.Group, controller Controller
 {{- range $path, $operations := .Paths -}}
 {{ range $method, $operation := $operations -}}
     {{ if $operation.Description }}// {{ $operation.Description }} {{ end }}
-    e.{{ toUpper $method }}("{{ toColumnParametersPath $path }}", func(c echo.Context) error {
-        {{- $methodName := operationId $path $method $operation -}}
-        {{- $hasParameters := len $operation.Parameters -}}
 
-        {{- if $operation.HasRequestBodyBindableParameters -}}
+    {{- $methodName := operationId $path $method $operation -}}
+    {{- $hasParameters := len $operation.Parameters }}
+
+    e.{{ toUpper $method }}("{{ toColumnParametersPath $path }}", func(c echo.Context) error {
+        {{ if $operation.HasRequestBodyBindableParameters -}}
             body := &{{ $methodName }}Body{}
         {{- end }}
-        {{- if $hasParameters }}
+        {{ if $hasParameters -}}
             parameters := &{{ $methodName }}Params{}
         {{- end }}
 
         if status, err := initParameters(c,
             {{- if $hasParameters }}parameters{{ else }}nil{{ end }},
-            {{- if $operation.HasRequestBodyBindableParameters -}}body{{ else }}nil{{ end }}, controller); err != nil {
+            {{- if $operation.HasRequestBodyBindableParameters -}}body{{ else }}nil{{ end }}); err != nil {
             {{ if hasGenericErrorResponse -}}
                 return c.JSON(status, controller.Error(err))
             {{- else -}}
@@ -96,15 +114,15 @@ func BuildRoutes(e *echo.Group, controller Controller
         if err != nil {
             return c.JSON({{ if $operation.IsAllEmptyResponses }}response{{ else }}response.Code{{ end }}, controller.Error(err))
         }
-        {{ else }}
+        {{ else -}}
         response := controller.{{ $methodName }}(
             {{- if $hasParameters }}parameters,{{ end }}
             {{- if $operation.HasRequestBodyBindableParameters -}}body, {{ end }} c.Request(), c.Response().Writer)
-        {{ end }}
+        {{ end -}}
 
         {{ range $statusCode, $response := $operation.Responses -}}
-        {{ $isCommonError := and hasGenericErrorResponse (eq $statusCode "default") }}
-        {{- if and (not $response.IsEmpty) (not $isCommonError) -}}
+        {{- $isCommonError := and hasGenericErrorResponse (eq $statusCode "default") -}}
+        {{ if and (not $response.IsEmpty) (not $isCommonError) }}
         if response.Http{{ toCamel $statusCode }} != nil {
             if response.Code == 0 {
                 response.Code = {{ getDefaultStatusCode $statusCode }}
@@ -112,7 +130,7 @@ func BuildRoutes(e *echo.Group, controller Controller
             return c.JSON(response.Code, response.Http{{ toCamel $statusCode }})
         }
         {{- end }}
-        {{ end }}
+        {{- end }}
 
         {{ if $operation.IsAllEmptyResponses -}}
         return c.NoContent(response)
