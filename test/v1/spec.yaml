@@ -314,6 +314,19 @@ paths:
                   $ref: '#/components/schemas/Pet'
 components:
   schemas:
+    AnyOfTest:
+      type: object
+      required:
+        - block1
+      properties:
+        block1:
+          anyOf:
+            - $ref: '#/components/schemas/InnerMap'
+            - $ref: '#/components/schemas/InnerStruct'
+        block2:
+          anyOf:
+            - $ref: '#/components/schemas/InnerMap'
+            - $ref: '#/components/schemas/InnerStruct'
     InnerMap:
       type: object
       additionalProperties: true

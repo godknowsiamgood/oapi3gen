@@ -17,6 +17,11 @@ import (
 
 /* Components schemas */
 
+type AnyOfTestSchema struct {
+	Block1 interface{} `json:"block1"`
+	Block2 interface{} `json:"block2,omitempty"`
+}
+
 type ErrorSchema struct {
 	Code    int32  `json:"code"`
 	Message string `json:"message"`

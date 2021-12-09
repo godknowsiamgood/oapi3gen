@@ -64,7 +64,9 @@ package {{ .GetPackageName }}
 {{- if .AdditionalProperties -}}
     map[string]interface{}
 {{- else -}}
-    {{- if .AllOf -}}
+    {{- if .AnyOf -}}
+        interface{}
+    {{- else if .AllOf -}}
         struct {
             {{- range .AllOf }}
                 {{ if .Type.IsObject -}}

@@ -93,6 +93,7 @@ func (p Parameter) IsRequired() bool {
 
 type Schema struct {
 	AllOf []Schema `yaml:"allOf"`
+	AnyOf []Schema `yaml:"anyOf"`
 
 	Ref                  Ref               `yaml:"$ref"`
 	Description          string            `yaml:"description"`
@@ -114,24 +115,6 @@ func (s Schema) HasDefault() bool {
 	return s.Default != nil
 }
 
-func (s Schema) ExpandAllOf() {
-	if len(s.AllOf) == 0 {
-		return
-	}
-
-	s.Type = "object"
-
-	if s.Properties == nil {
-		s.Properties = make(map[string]Schema)
-	}
-
-	for _, e := range s.AllOf {
-		for k, v := range e.Properties {
-			s.Properties[k] = v
-		}
-	}
-}
-
 func (s Schema) IsFieldOptional(fieldName string) bool {
 	for _, r := range s.Required {
 		if fieldName == r {
@@ -142,7 +125,7 @@ func (s Schema) IsFieldOptional(fieldName string) bool {
 }
 
 func (s Schema) IsSet() bool {
-	return s.Ref.IsSet() || len(s.AllOf) > 0 || s.Type != ""
+	return s.Ref.IsSet() || len(s.AllOf) > 0 || len(s.AnyOf) > 0 || s.Type != ""
 }
 func (s Schema) GetMinimum() string {
 	if !s.IsNumeric() || s.Minimum == nil {
